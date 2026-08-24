@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, CheckCircle2, Clock, Pencil, Printer, Save, Settings2, Trash2 } from "lucide-react";
 import { OfficialFormHeader } from "@/components/official-form-header";
 import { useToast } from "@/hooks/use-toast";
+import { getGetDashboardStatsQueryKey } from "@workspace/api-client-react";
 
 
 type PmChecklistPoint = {
@@ -100,6 +101,8 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
       setEditingInspectionId(null);
       queryClient.invalidateQueries({ queryKey: ["pm-record", machineId, historicalRecordId ?? "current"] });
       queryClient.invalidateQueries({ queryKey: ["pm-current", machineId] });
+      queryClient.invalidateQueries({ queryKey: ["monthly-plan"] });
+      queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
     },
   });
   const { data: receiverPermissions = [] } = useQuery({
@@ -120,6 +123,8 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
       if (editingInspectionId === inspectionId) cancelEdit();
       queryClient.invalidateQueries({ queryKey: ["pm-record", machineId, historicalRecordId ?? "current"] });
       queryClient.invalidateQueries({ queryKey: ["pm-current", machineId] });
+      queryClient.invalidateQueries({ queryKey: ["monthly-plan"] });
+      queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
       toast({ title: "Inspection deleted", description: "The preventive-maintenance inspection was removed." });
     },
     onError: (error) => toast({ variant: "destructive", title: "Delete failed", description: error instanceof Error ? error.message : "Unable to delete the inspection." }),
@@ -236,7 +241,7 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
             <Label>Inspection columns per print page</Label>
             <Input value={String(data.header.inspectionColumnsPerPrintPage)} readOnly />
           </div>
-          {!isHistorical && hasPermission("edit_header") && (
+          {!isHistorical && hasPermission("edit_header_preventive_maintenance") && (
             <Button asChild variant="secondary" className="md:col-span-4 w-fit">
               <Link href={`/machines/${machineId}/pm/header`}>Edit Header</Link>
             </Button>

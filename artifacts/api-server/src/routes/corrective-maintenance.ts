@@ -246,11 +246,16 @@ async function ensureActiveRecord(machineId: number) {
     .where(eq(correctiveMaintenanceRecordsTable.machineId, machineId))
     .orderBy(desc(correctiveMaintenanceRecordsTable.sequenceNumber))
     .limit(1);
+  const [sharedHeader] = latest ? [] : await db.select({
+    documentNumber: correctiveMaintenanceRecordsTable.documentNumber,
+    executionDate: correctiveMaintenanceRecordsTable.executionDate,
+  }).from(correctiveMaintenanceRecordsTable).where(eq(correctiveMaintenanceRecordsTable.status, "active")).orderBy(desc(correctiveMaintenanceRecordsTable.updatedAt)).limit(1);
   const [created] = await db.insert(correctiveMaintenanceRecordsTable).values({
     machineId,
     sequenceNumber: (latest?.sequenceNumber ?? 0) + 1,
     previousRecordId: latest?.id ?? null,
-    executionDate: new Date().toISOString().slice(0, 10),
+    documentNumber: latest?.documentNumber ?? sharedHeader?.documentNumber ?? "LOG-00-0102-3",
+    executionDate: latest?.executionDate ?? sharedHeader?.executionDate ?? new Date().toISOString().slice(0, 10),
     machineName: machine.machineName,
     machineNumber: machine.machineNumber,
     machineLocation: machine.location,
@@ -273,7 +278,8 @@ async function getRecordForNewEvent(machineId: number) {
     machineId,
     sequenceNumber: active.sequenceNumber + 1,
     previousRecordId: active.id,
-    executionDate: new Date().toISOString().slice(0, 10),
+    documentNumber: active.documentNumber,
+    executionDate: active.executionDate,
     machineName: machine.machineName,
     machineNumber: machine.machineNumber,
     machineLocation: machine.location,
@@ -350,7 +356,7 @@ router.get("/", requireAuth, requirePermission("view_corrective_maintenance"), a
   }
 });
 
-router.put("/header", requireAuth, requirePermission("edit_header"), async (req, res, next) => {
+router.put("/header", requireAuth, requirePermission("edit_header_corrective_maintenance"), async (req, res, next) => {
   try {
     const machineId = parseIdParam(req.params.id);
     const [record] = await db
@@ -381,7 +387,47 @@ router.put("/header", requireAuth, requirePermission("edit_header"), async (req,
       .where(eq(correctiveMaintenanceRecordsTable.id, record.id))
       .returning();
 
+    await db.update(correctiveMaintenanceRecordsTable).set({
+      documentNumber: body.documentNumber?.trim() || record.documentNumber,
+      executionDate: body.executionDate?.trim() || null,
+      updatedAt: new Date(),
+    }).where(and(eq(correctiveMaintenanceRecordsTable.status, "active"), ne(correctiveMaintenanceRecordsTable.id, record.id)));
+
     res.json(await recordDetail(updated!));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/events", requireAuth, requirePermission("edit_corrective_maintenance"), async (req, res, next) => {
+  try {
+    const machineId = parseIdParam(req.params.id);
+    const record = await getRecordForNewEvent(machineId);
+    if (!record) {
+      res.status(404).json({ error: "No active corrective maintenance record found" });
+      return;
+    }
+    const [lastEvent] = await db
+      .select({ rowNumber: correctiveMaintenanceEventsTable.rowNumber })
+      .from(correctiveMaintenanceEventsTable)
+      .where(eq(correctiveMaintenanceEventsTable.recordId, record.id))
+      .orderBy(desc(correctiveMaintenanceEventsTable.rowNumber))
+      .limit(1);
+    const [created] = await db.insert(correctiveMaintenanceEventsTable).values({
+      recordId: record.id,
+      requestId: null,
+      machineId,
+      rowNumber: (lastEvent?.rowNumber ?? 0) + 1,
+      repairTimeSlots: JSON.stringify([{ date: "", from: "", to: "" }]),
+    }).returning();
+    await db.insert(auditLogsTable).values({
+      userId: req.session.userId ?? null,
+      action: "corrective_maintenance_record_filled",
+      entityType: "machine",
+      entityId: machineId,
+      details: { eventId: created!.id, recordId: record.id, manual: true },
+    });
+    res.status(201).json(formatEvent(created!));
   } catch (err) {
     next(err);
   }

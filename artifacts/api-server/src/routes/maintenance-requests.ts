@@ -50,19 +50,77 @@ const STATUS = {
 
 const CLOSED_CM_LOG_HEADER_ID = 0;
 const MAINTENANCE_REQUEST_NUMBERING_HEADER_ID = 0;
+const MAINTENANCE_REQUEST_HEADER_ID = 0;
 
-async function getMaintenanceRequestNumberingStart() {
+async function getMaintenanceRequestHeader(requestId = MAINTENANCE_REQUEST_HEADER_ID): Promise<typeof formHeadersTable.$inferSelect> {
+  const [existing] = await db
+    .select()
+    .from(formHeadersTable)
+    .where(and(
+      eq(formHeadersTable.documentType, "MAINTENANCE_REQUEST"),
+      eq(formHeadersTable.documentId, requestId),
+    ));
+  if (existing) return existing;
+  const template: typeof formHeadersTable.$inferSelect | null = requestId === MAINTENANCE_REQUEST_HEADER_ID ? null : await getMaintenanceRequestHeader();
+  const createdRows = await db.insert(formHeadersTable).values({
+    documentType: "MAINTENANCE_REQUEST",
+    documentId: requestId,
+    companyName: template?.companyName ?? "Beit Jala Pharmaceutical Co.",
+    documentName: template?.documentName ?? "Maintenance Request & Corrective Maintenance Report",
+    documentNumber: template?.documentNumber ?? "FORM-10-0975-1",
+    effectiveOrExecutionDate: template?.effectiveOrExecutionDate ?? "18/03/2023",
+    pageNumber: template?.pageNumber ?? 1,
+    totalPages: template?.totalPages ?? 1,
+  }).returning();
+  return createdRows[0]!;
+}
+
+async function getMaintenanceRequestNumberingStart(year = new Date().getFullYear()) {
   const [setting] = await db
     .select({ documentNumber: formHeadersTable.documentNumber })
     .from(formHeadersTable)
     .where(
       and(
         eq(formHeadersTable.documentType, "MAINTENANCE_REQUEST_NUMBERING"),
-        eq(formHeadersTable.documentId, MAINTENANCE_REQUEST_NUMBERING_HEADER_ID),
+        eq(formHeadersTable.documentId, year),
       ),
     );
-  const value = setting?.documentNumber.trim() ?? "";
-  return /^\d+$/.test(value) ? Number(value) : null;
+  if (setting) {
+    const value = setting.documentNumber.trim();
+    return /^\d+$/.test(value) ? Number(value) : null;
+  }
+  // The original setting (document ID 0) controls whether automatic
+  // numbering is enabled. Its saved counter belongs to the migration year;
+  // every later year starts with its own counter at zero.
+  const [legacySetting] = await db
+    .select({ documentNumber: formHeadersTable.documentNumber, updatedAt: formHeadersTable.updatedAt })
+    .from(formHeadersTable)
+    .where(and(
+      eq(formHeadersTable.documentType, "MAINTENANCE_REQUEST_NUMBERING"),
+      eq(formHeadersTable.documentId, MAINTENANCE_REQUEST_NUMBERING_HEADER_ID),
+    ));
+  const value = legacySetting?.documentNumber.trim() ?? "";
+  if (!/^\d+$/.test(value)) return null;
+  return legacySetting!.updatedAt.getFullYear() === year ? Number(value) : 0;
+}
+
+async function saveMaintenanceRequestNumberingCounter(year: number, value: string) {
+  const [existing] = await db.select({ id: formHeadersTable.id })
+    .from(formHeadersTable)
+    .where(and(
+      eq(formHeadersTable.documentType, "MAINTENANCE_REQUEST_NUMBERING"),
+      eq(formHeadersTable.documentId, year),
+    ));
+  if (existing) {
+    await db.update(formHeadersTable).set({ documentNumber: value, updatedAt: new Date() }).where(eq(formHeadersTable.id, existing.id));
+  } else {
+    await db.insert(formHeadersTable).values({
+      documentType: "MAINTENANCE_REQUEST_NUMBERING",
+      documentId: year,
+      documentName: `Maintenance request numbering ${year}`,
+      documentNumber: value,
+    });
+  }
 }
 
 async function getClosedCorrectiveMaintenanceLogHeader() {
@@ -472,7 +530,7 @@ async function nextApprovedRequestNumber(requestDate: string) {
   // An empty numbering setting explicitly disables automatic numbering.
   // Existing approved request numbers are historical data and must not turn
   // the automatic sequence back on after an administrator disables it.
-  const configuredStart = await getMaintenanceRequestNumberingStart();
+  const configuredStart = await getMaintenanceRequestNumberingStart(year);
   if (configuredStart === null) return null;
   // The configured value is the current sequence counter. Historical request
   // numbers must not override a newly selected starting point.
@@ -1159,8 +1217,9 @@ router.get(
   requirePermission("set_maintenance_request_number_start"),
   async (_req, res, next) => {
     try {
+      const year = new Date().getFullYear();
       res.json({
-        lastSequence: await getMaintenanceRequestNumberingStart(),
+        lastSequence: await getMaintenanceRequestNumberingStart(year),
         nextNumber: await nextApprovedRequestNumber(todayString()),
       });
     } catch (err) {
@@ -1180,28 +1239,9 @@ router.put(
         res.status(400).json({ error: "Enter a valid last maintenance-request sequence number" });
         return;
       }
-      const [existing] = await db
-        .select({ id: formHeadersTable.id })
-        .from(formHeadersTable)
-        .where(
-          and(
-            eq(formHeadersTable.documentType, "MAINTENANCE_REQUEST_NUMBERING"),
-            eq(formHeadersTable.documentId, MAINTENANCE_REQUEST_NUMBERING_HEADER_ID),
-          ),
-        );
-      if (existing) {
-        await db
-          .update(formHeadersTable)
-          .set({ documentNumber: value, updatedAt: new Date() })
-          .where(eq(formHeadersTable.id, existing.id));
-      } else {
-        await db.insert(formHeadersTable).values({
-          documentType: "MAINTENANCE_REQUEST_NUMBERING",
-          documentId: MAINTENANCE_REQUEST_NUMBERING_HEADER_ID,
-          documentName: "Maintenance request numbering",
-          documentNumber: value,
-        });
-      }
+      const year = new Date().getFullYear();
+      await saveMaintenanceRequestNumberingCounter(year, value);
+      await saveMaintenanceRequestNumberingCounter(MAINTENANCE_REQUEST_NUMBERING_HEADER_ID, value ? "0" : "");
       res.json({
         lastSequence: value ? Number(value) : null,
         nextNumber: await nextApprovedRequestNumber(todayString()),
@@ -1274,6 +1314,7 @@ router.patch(
 router.get("/", requireAuth, async (req, res, next) => {
   try {
     const scope = String(req.query.scope ?? "all");
+    const requestedYear = Number(req.query.year);
     const permissions = req.session.permissions ?? [];
     let allowedStatuses: string[] | null = null;
     let ownOnly = false;
@@ -1349,6 +1390,9 @@ router.get("/", requireAuth, async (req, res, next) => {
     if (allowedStatuses)
       rows = rows.filter((row) => allowedStatuses.includes(row.status));
     rows = rows.filter((row) => scope === "archived" ? Boolean(row.archivedAt) : !row.archivedAt);
+    if (Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100) {
+      rows = rows.filter((row) => row.requestDate.startsWith(`${requestedYear}-`));
+    }
     rows = rows.filter(
       (row) =>
         ensureCanView(req, row) ||
@@ -1469,6 +1513,33 @@ router.get(
   },
 );
 
+router.get("/header", requireAuth, async (req, res, next) => {
+  try {
+    const requestId = Number(req.query.requestId ?? 0);
+    res.json(await getMaintenanceRequestHeader(Number.isInteger(requestId) && requestId > 0 ? requestId : 0));
+  } catch (err) { next(err); }
+});
+
+router.put("/header", requireAuth, requirePermission("edit_header_maintenance_request"), async (req, res, next) => {
+  try {
+    const current = await getMaintenanceRequestHeader();
+    const body = req.body as {
+      companyName?: string;
+      documentName?: string;
+      documentNumber?: string;
+      effectiveOrExecutionDate?: string | null;
+      pageNumber?: number;
+      totalPages?: number;
+    };
+    const [saved] = await db.update(formHeadersTable).set({
+      documentNumber: body.documentNumber?.trim() || current.documentNumber,
+      effectiveOrExecutionDate: body.effectiveOrExecutionDate?.trim() || null,
+      updatedAt: new Date(),
+    }).where(eq(formHeadersTable.id, current.id)).returning();
+    res.json(saved);
+  } catch (err) { next(err); }
+});
+
 // LOG-10-0659-0: closed requests populate the register automatically. Manual
 // entries are restricted supplemental records for exceptional cases only.
 router.get(
@@ -1487,7 +1558,7 @@ router.get(
 router.put(
   "/closed-log/header",
   requireAuth,
-  requirePermission("edit_header"),
+  requirePermission("edit_header_closed_corrective_log"),
   async (req, res, next) => {
     try {
       const current = await getClosedCorrectiveMaintenanceLogHeader();
@@ -1873,6 +1944,7 @@ router.post(
           status: STATUS.SUBMITTED,
         })
         .returning();
+      await getMaintenanceRequestHeader(created!.id);
       await addStatusHistory(
         created!.id,
         null,
@@ -2456,15 +2528,8 @@ async function engineeringReviewHandler(
       .returning();
     if (usedAutomaticNumber) {
       const approvedSequence = approvedRequestNumber.split("/", 1)[0]!;
-      await db
-        .update(formHeadersTable)
-        .set({ documentNumber: approvedSequence, updatedAt: new Date() })
-        .where(
-          and(
-            eq(formHeadersTable.documentType, "MAINTENANCE_REQUEST_NUMBERING"),
-            eq(formHeadersTable.documentId, MAINTENANCE_REQUEST_NUMBERING_HEADER_ID),
-          ),
-        );
+      const approvedYear = requestNumberDate(request.requestDate).getFullYear();
+      await saveMaintenanceRequestNumberingCounter(approvedYear, approvedSequence);
     }
     if (toStatus === STATUS.ACCEPTED) await ensureEventForRequest(updated!);
     await addStatusHistory(

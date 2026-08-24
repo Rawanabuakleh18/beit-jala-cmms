@@ -250,6 +250,8 @@ export interface EquipmentInformation {
   /** @nullable */
   dimensionDepthCm?: number | null;
   /** @nullable */
+  dimensionsNote?: string | null;
+  /** @nullable */
   weightKg?: number | null;
   /** @nullable */
   utilitiesPowerSupply?: string | null;
@@ -295,6 +297,7 @@ export interface EquipmentInformationInput {
   dimensionHeightCm?: number | null;
   /** @nullable */
   dimensionDepthCm?: number | null;
+  dimensionsNote?: string;
   /** @nullable */
   weightKg?: number | null;
   utilitiesPowerSupply?: string;

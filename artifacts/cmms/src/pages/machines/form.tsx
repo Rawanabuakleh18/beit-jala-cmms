@@ -39,7 +39,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 const machineSchema = z.object({
   machineNumber: z.string().min(1, "Machine number is required"),
   machineName: z.string().min(1, "Machine name is required"),
-  departmentId: z.coerce.number().optional().nullable(),
+  departmentId: z.preprocess(
+    (value) => value === "" || value === "none" || value == null ? null : Number(value),
+    z.number().int().positive().nullable().optional(),
+  ),
   location: z.string().optional(),
   status: z.string().default("Active"),
   pmFrequencyMonths: z.coerce.number().min(1, "Must be at least 1").optional().nullable(),
@@ -60,7 +63,7 @@ export default function MachineForm({ params }: { params?: { id: string } }) {
   
   const { data: machineData, isLoading: isLoadingMachine } = useGetMachine(
     machineId!, 
-    { query: { enabled: isEditing, queryKey: getGetMachineQueryKey(machineId!) } }
+    { query: { enabled: isEditing, queryKey: getGetMachineQueryKey(machineId!), refetchOnMount: "always" } }
   );
 
   const createMutation = useCreateMachine();
@@ -92,6 +95,14 @@ export default function MachineForm({ params }: { params?: { id: string } }) {
       });
     }
   }, [isEditing, machineData, form]);
+
+  useEffect(() => {
+    if (isEditing || !departments?.length || form.getValues("departmentId")) return;
+    const savedDepartmentId = Number(window.localStorage.getItem("cmms:last-machine-department-id"));
+    if (Number.isInteger(savedDepartmentId) && departments.some((department) => department.id === savedDepartmentId)) {
+      form.setValue("departmentId", savedDepartmentId);
+    }
+  }, [departments, form, isEditing]);
 
   const onSubmit = (values: MachineFormValues) => {
     // Clean up empty strings to nulls for API
@@ -219,8 +230,16 @@ export default function MachineForm({ params }: { params?: { id: string } }) {
                   <FormItem>
                     <FormLabel>Department</FormLabel>
                     <Select
-                      onValueChange={(val) => field.onChange(val === "none" ? null : parseInt(val, 10))}
-                      value={field.value?.toString() || "none"}
+                      onValueChange={(val) => {
+                        const departmentId = val === "none" ? null : Number(val);
+                        field.onChange(departmentId);
+                        if (departmentId) {
+                          window.localStorage.setItem("cmms:last-machine-department-id", String(departmentId));
+                        } else {
+                          window.localStorage.removeItem("cmms:last-machine-department-id");
+                        }
+                      }}
+                      value={(field.value ?? machineData?.departmentId)?.toString() || "none"}
                     >
                       <FormControl>
                         <SelectTrigger>

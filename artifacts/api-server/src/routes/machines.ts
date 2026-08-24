@@ -18,6 +18,24 @@ import { syncAutomaticMaintenancePlans } from "./maintenance-plans.js";
 
 const router = Router();
 
+async function syncCurrentAnnualPlan(pmStartDate?: string | null) {
+  const [latestPlan] = await db
+    .select({ year: annualPmPlansTable.year })
+    .from(annualPmPlansTable)
+    .orderBy(desc(annualPmPlansTable.year))
+    .limit(1);
+  const years = new Set([
+    new Date().getFullYear(),
+    latestPlan?.year,
+    Number(pmStartDate?.slice(0, 4)),
+  ]);
+  for (const year of years) {
+    if (Number.isInteger(year) && Number(year) >= 2000) {
+      await syncAutomaticMaintenancePlans(Number(year));
+    }
+  }
+}
+
 function formatMachine(m: {
   id: number;
   machineNumber: string;
@@ -219,8 +237,7 @@ router.post("/", requireActiveAuth, requirePermission("create_machine"), async (
         .returning({ id: machinesTable.id });
 
       if (pmFrequencyMonths && pmStartDate) {
-        const years = new Set([new Date().getFullYear(), Number(pmStartDate.slice(0, 4))]);
-        for (const year of years) if (Number.isInteger(year) && year >= 2000) await syncAutomaticMaintenancePlans(year);
+        await syncCurrentAnnualPlan(pmStartDate);
       }
 
       const machine = await getMachineWithDept(newMachine!.id);
@@ -300,8 +317,7 @@ router.put("/:id", requireActiveAuth, requirePermission("edit_machine"), async (
     }
 
     if (pmFrequencyMonths !== undefined || pmStartDate !== undefined) {
-      const years = new Set([new Date().getFullYear(), Number(pmStartDate?.slice(0, 4))]);
-      for (const year of years) if (Number.isInteger(year) && year >= 2000) await syncAutomaticMaintenancePlans(year);
+      await syncCurrentAnnualPlan(pmStartDate ?? previous?.pmStartDate);
     }
 
     const machine = await getMachineWithDept(id);
@@ -399,7 +415,7 @@ router.delete("/:id/permanent", requireActiveAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put("/:id/equipment-information/header", requireActiveAuth, requirePermission("edit_header"), async (req, res, next) => {
+router.put("/:id/equipment-information/header", requireActiveAuth, requirePermission("edit_header_equipment_information"), async (req, res, next) => {
   try {
     const machineId = parseIdParam(req.params.id);
     if (!(await getMachineWithDept(machineId))) {

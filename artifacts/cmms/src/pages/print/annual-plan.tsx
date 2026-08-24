@@ -49,8 +49,8 @@ export default function AnnualPlanPrintPage({ params }: { params: { year: string
     queryFn: () => apiRequest<AnnualPlan>(`/maintenance-plans/annual/${year}`),
   });
   const { data: header } = useQuery({
-    queryKey: ["annual-pm-header"],
-    queryFn: () => apiRequest<AnnualPlanHeader>("/maintenance-plans/annual/header"),
+    queryKey: ["annual-pm-header", year],
+    queryFn: () => apiRequest<AnnualPlanHeader>(`/maintenance-plans/annual/header?year=${year}`),
   });
   const planId = data?.id ?? 0;
   const { data: signatures = [] } = useQuery({

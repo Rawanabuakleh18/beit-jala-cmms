@@ -27,6 +27,15 @@ const monthNames = [
   "December",
 ];
 
+function monthDateRange(year: number, month: number) {
+  const monthText = String(month).padStart(2, "0");
+  const lastDay = new Date(year, month, 0).getDate();
+  return {
+    start: `${year}-${monthText}-01`,
+    end: `${year}-${monthText}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 type MonthlyRow = {
   id: number;
   machineId: number | null;
@@ -70,7 +79,7 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { hasPermission } = useAuth();
-  const canEditPlan = hasPermission("edit_monthly_maintenance_plan");
+  const canEditPlan = hasPermission("edit_header_monthly_plan");
   const canEditRows = hasPermission("edit_monthly_maintenance_plan");
   const canDeleteRows = hasPermission("delete_monthly_pm_plan_rows");
   const [isEditingRows, setIsEditingRows] = useState(false);
@@ -112,12 +121,13 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
   const addCarryOverRow = useMutation({
     mutationFn: () => {
       const [targetYear, targetMonth] = carryOverDate.split("-").map(Number);
+      const targetRange = monthDateRange(targetYear, targetMonth);
       return apiRequest<MonthlyRow>(`/maintenance-plans/monthly/${targetYear}/${targetMonth}/rows`, {
         method: "POST",
         body: JSON.stringify({
           machineId: Number(carryOverMachineId),
-          plannedDateFrom: carryOverDate,
-          plannedDateTo: carryOverDate,
+          plannedDateFrom: targetRange.start,
+          plannedDateTo: targetRange.end,
           sourceYear: year,
           sourceMonth: month,
         }),
@@ -132,14 +142,17 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
   });
 
   const addMachineRow = useMutation({
-    mutationFn: () => apiRequest<MonthlyRow>(`/maintenance-plans/monthly/${year}/${month}/rows`, {
-      method: "POST",
-      body: JSON.stringify({
-        machineId: Number(newMachineId),
-        plannedDateFrom: newMachineDate,
-        plannedDateTo: newMachineDate,
-      }),
-    }),
+    mutationFn: () => {
+      const range = monthDateRange(year, month);
+      return apiRequest<MonthlyRow>(`/maintenance-plans/monthly/${year}/${month}/rows`, {
+        method: "POST",
+        body: JSON.stringify({
+          machineId: Number(newMachineId),
+          plannedDateFrom: range.start,
+          plannedDateTo: range.end,
+        }),
+      });
+    },
     onSuccess: () => {
       setNewMachineId("");
       queryClient.invalidateQueries({ queryKey: ["monthly-plan", year, month] });

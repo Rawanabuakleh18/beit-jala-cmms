@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import type { CSSProperties } from "react";
 import { apiRequest } from "@/lib/api";
 import { DottedLine, OfficialPrintHeader, PrintLayout, PrintPage } from "./print-layout";
 import { Button } from "@/components/ui/button";
@@ -15,10 +14,16 @@ type EquipmentHeader = {
   pageNumber: number;
   totalPages: number;
 };
+type ElectronicSignature = { fieldName: string; signatureData: string | null; userName: string };
 
 function value(record: EquipmentInformation | undefined, key: string) {
   const item = record?.[key];
   return item === null || item === undefined ? "" : String(item);
+}
+
+function formatDate(value: string) {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
 }
 
 const labels = {
@@ -101,32 +106,36 @@ export default function EquipmentInformationPrintPage({ params }: { params: { id
   const { data } = useQuery({
     queryKey: ["print-equipment-information", machineId],
     queryFn: () => apiRequest<EquipmentInformation>(`/machines/${machineId}/equipment-information`),
+    retry: false,
   });
   const { data: header } = useQuery({
     queryKey: ["equipment-header"],
     queryFn: () => apiRequest<EquipmentHeader>(`/machines/${machineId}/equipment-information/header`),
   });
+  const { data: signatures = [] } = useQuery({
+    queryKey: ["print-equipment-information-signatures", machineId],
+    queryFn: () => apiRequest<ElectronicSignature[]>(`/signatures?documentType=EQUIPMENT_INFORMATION&documentId=${machineId}`),
+  });
+  const preparedSignature = signatures.find((signature) => signature.fieldName === "prepared_by");
+  const approvedSignature = signatures.find((signature) => signature.fieldName === "approved_by");
   const otherRows = value(data, "others")
     .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+    .map((item) => item.trim());
   const otherDetailRows = value(data, "othersDetails")
     .split(/\r?\n/)
     .map((item) => item.trim());
   const safetyIssueRows = value(data, "safetyIssues")
     .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+    .map((item) => item.trim());
   const safetyIssueDetailRows = value(data, "safetyIssuesDetails")
     .split(/\r?\n/)
     .map((item) => item.trim());
-  const otherRowCount = Math.max(otherRows.length, otherDetailRows.filter(Boolean).length);
-  const safetyRowCount = Math.max(safetyIssueRows.length, safetyIssueDetailRows.filter(Boolean).length);
-  // The controlled form remains a single sheet: extra user-entered rows share
-  // the reserved space of the Others and Safety blocks instead of pushing the
-  // footer onto a second page.
-  const flexibleExtraRowHeight = Math.max(3, Math.min(6, 36 / Math.max(1, otherRowCount + safetyRowCount)));
-  const formGridStyle = { "--equipment-extra-row-height": `${flexibleExtraRowHeight}mm` } as CSSProperties;
+  const pairedRows = (left: string[], right: string[]) => Array.from(
+    { length: Math.max(left.length, right.length) },
+    (_, index) => [left[index] ?? "", right[index] ?? ""] as const,
+  ).filter(([leftValue, rightValue]) => leftValue || rightValue);
+  const visibleOtherRows = pairedRows(otherRows, otherDetailRows);
+  const visibleSafetyRows = pairedRows(safetyIssueRows, safetyIssueDetailRows);
 
   return (
     <div dir={isAr ? "rtl" : "ltr"}>
@@ -162,7 +171,7 @@ export default function EquipmentInformationPrintPage({ params }: { params: { id
             </tbody>
           </table>
 
-          <div className="equipment-information-form-grid mt-4" style={formGridStyle}>
+          <div className="equipment-information-form-grid mt-4">
           <table className="official-print-table equipment-information-details">
             <tbody>
               {[
@@ -181,16 +190,22 @@ export default function EquipmentInformationPrintPage({ params }: { params: { id
                 <td className="font-semibold">
                   {L.f6a}<br />{L.f6b}<br />{L.f6c}
                 </td>
-                <td className="whitespace-pre-line">
-                  {value(data, "purchasedFromName")}<br />{value(data, "purchasedFromAddress")}
+                <td>
+                  <div className="equipment-information-company-lines">
+                    <div>{value(data, "purchasedFromName")}</div>
+                    <div>{value(data, "purchasedFromAddress")}</div>
+                  </div>
                 </td>
               </tr>
               <tr className="official-print-row-tall equipment-information-multiline-label">
                 <td className="font-semibold">
                   {L.f7a}<br />{L.f7b}<br />{L.f7c}
                 </td>
-                <td className="whitespace-pre-line">
-                  {value(data, "manufacturingCompanyName")}<br />{value(data, "manufacturingCompanyAddress")}
+                <td>
+                  <div className="equipment-information-company-lines">
+                    <div>{value(data, "manufacturingCompanyName")}</div>
+                    <div>{value(data, "manufacturingCompanyAddress")}</div>
+                  </div>
                 </td>
               </tr>
               <tr>
@@ -201,8 +216,9 @@ export default function EquipmentInformationPrintPage({ params }: { params: { id
                     <>8. Equipment Dimensions<br />(in cm):<br />Width (W) X Height (H) X Depth (D)</>
                   )}
                 </td>
-                <td className="whitespace-pre-line">
-                  {value(data, "dimensionWidthCm")} × {value(data, "dimensionHeightCm")} × {value(data, "dimensionDepthCm")}
+                <td className="equipment-information-dimensions-value whitespace-pre-line">
+                  {[value(data, "dimensionWidthCm"), value(data, "dimensionHeightCm"), value(data, "dimensionDepthCm")].filter(Boolean).join(" × ")}
+                  {value(data, "dimensionsNote") && <>{[value(data, "dimensionWidthCm"), value(data, "dimensionHeightCm"), value(data, "dimensionDepthCm")].some(Boolean) ? " — " : ""}{value(data, "dimensionsNote")}</>}
                 </td>
               </tr>
               <tr>
@@ -229,39 +245,34 @@ export default function EquipmentInformationPrintPage({ params }: { params: { id
             </tbody>
           </table>
 
-          {otherRowCount > 0 && <>
           <div className="official-print-section-title">{L.f11}</div>
           <table className="official-print-table equipment-information-others">
             <tbody>
-              {Array.from({ length: otherRowCount }).map((_, index) => (
+              {visibleOtherRows.map(([item, detail], index) => (
                 <tr key={`other-${index}`} className="official-print-row-tall">
-                  <td className="w-[48%]">{otherRows[index] ?? ""}</td>
-                  <td>{otherDetailRows[index] ?? ""}</td>
+                  <td className="w-[48%]">{item}</td>
+                  <td>{detail}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          </>}
 
-          {safetyRowCount > 0 && <>
           <div className="official-print-section-title">{L.f12}</div>
           <table className="official-print-table equipment-information-safety">
             <tbody>
-              {Array.from({ length: safetyRowCount }).map((_, index) => (
+              {visibleSafetyRows.map(([issue, detail], index) => (
                 <tr key={`safety-${index}`} className="official-print-row-tall">
-                  <td className="w-[48%]">{safetyIssueRows[index] ?? ""}</td>
-                  <td>{safetyIssueDetailRows[index] ?? ""}</td>
+                  <td className="w-[48%]">{issue}</td>
+                  <td>{detail}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          </>}
           </div>
 
-          <div className="mt-4">
-            {L.preparedBy} <DottedLine text={value(data, "preparedByName")} /> {L.date} <DottedLine text={value(data, "preparedByDate")} />
-            <br />
-            {L.approvedBy} <DottedLine text={value(data, "approvedByName")} /> {L.date} <DottedLine text={value(data, "approvedByDate")} />
+          <div className="equipment-information-approvals mt-4">
+            <div><span>{L.preparedBy} <DottedLine text={value(data, "preparedByName") || preparedSignature?.userName} />{preparedSignature?.signatureData && <img src={preparedSignature.signatureData} alt="Prepared by signature" className="equipment-information-approval-signature" />}</span><span>{L.date} <DottedLine text={formatDate(value(data, "preparedByDate"))} /></span></div>
+            <div><span>{L.approvedBy} <DottedLine text={value(data, "approvedByName") || approvedSignature?.userName} />{approvedSignature?.signatureData && <img src={approvedSignature.signatureData} alt="Approved by signature" className="equipment-information-approval-signature" />}</span><span>{L.date} <DottedLine text={formatDate(value(data, "approvedByDate"))} /></span></div>
           </div>
           </div>
         </PrintPage>

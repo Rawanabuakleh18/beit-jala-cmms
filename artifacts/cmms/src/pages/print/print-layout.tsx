@@ -30,16 +30,14 @@ export function PrintLayout({
     : landscape;
 
   const handlePrint = () => {
-    if (!printLandscape) {
-      window.print();
-      return;
-    }
-
-    // Add the print-page instruction immediately before printing. This is more
-    // reliable in Chromium's print preview than relying only on route CSS.
+    // Add the page instruction immediately before every print. Chromium can
+    // otherwise snapshot the previous @page rule when switching records or
+    // orientations and keep its URL/date header and footer margin.
     const style = document.createElement("style");
     style.media = "print";
-    style.textContent = "@page { size: 297mm 210mm; margin: 12mm; }";
+    style.textContent = printLandscape
+      ? "@page { size: 297mm 210mm; margin: 0; }"
+      : "@page { size: 210mm 297mm; margin: 0; }";
     document.head.appendChild(style);
 
     const cleanup = () => {
@@ -48,8 +46,7 @@ export function PrintLayout({
     };
     window.addEventListener("afterprint", cleanup);
 
-    // Give the browser time to apply the new page size before it snapshots
-    // the document for the print preview.
+    // Give the browser time to apply the rule before it snapshots the page.
     window.setTimeout(() => window.print(), 250);
   };
 

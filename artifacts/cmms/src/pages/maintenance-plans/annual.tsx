@@ -63,7 +63,7 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
   const [, navigate] = useLocation();
   const { user, hasPermission } = useAuth();
   const canEdit = hasPermission("edit_annual_maintenance_plan");
-  const canEditHeader = hasPermission("edit_header");
+  const canEditHeader = hasPermission("edit_header_annual_plan");
   const { data: signaturePermissions = [] } = useQuery({
     queryKey: ["annual-plan-signature-permissions"],
     queryFn: () => apiRequest<Array<{ fieldName: string; eligibleUserId: number }>>("/signatures/field-permissions?documentType=ANNUAL_PLAN"),
@@ -88,8 +88,8 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
   }, [data]);
 
   const { data: savedHeader } = useQuery({
-    queryKey: ["annual-pm-header"],
-    queryFn: () => apiRequest<AnnualPlanHeader>("/maintenance-plans/annual/header"),
+    queryKey: ["annual-pm-header", year],
+    queryFn: () => apiRequest<AnnualPlanHeader>(`/maintenance-plans/annual/header?year=${year}`),
   });
 
   useEffect(() => {
@@ -97,10 +97,10 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
   }, [savedHeader]);
 
   const saveHeader = useMutation({
-    mutationFn: () => apiRequest<AnnualPlanHeader>("/maintenance-plans/annual/header", { method: "PUT", body: JSON.stringify(header) }),
+    mutationFn: () => apiRequest<AnnualPlanHeader>(`/maintenance-plans/annual/header?year=${year}`, { method: "PUT", body: JSON.stringify(header) }),
     onSuccess: (saved) => {
       setHeader(saved);
-      queryClient.invalidateQueries({ queryKey: ["annual-pm-header"] });
+      queryClient.invalidateQueries({ queryKey: ["annual-pm-header", year] });
     },
   });
 
@@ -187,7 +187,7 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
             <div className="md:col-span-2">
               <Button type="button" onClick={() => saveHeader.mutate()} disabled={saveHeader.isPending}>
                 <Save className="mr-2 h-4 w-4" />
-                Save Header for All Annual Plans
+                Save Header for {year} Only
               </Button>
             </div>
           </CardContent>

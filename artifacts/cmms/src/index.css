@@ -269,12 +269,22 @@ main:has([data-permissions-page='true']) > div:last-child {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm;
+    /* Chromium only adds its date/title/URL headers and footers inside the
+       physical page margin. Keep that margin at zero and put the same safe
+       spacing on our page component instead. */
+    margin: 0;
   }
 
   body {
     background: white !important;
     color: black !important;
+    /* Replace the zero physical page margin for regular record screens too,
+       so browser headers stay hidden without pushing content to the edge. */
+    padding: 12mm !important;
+  }
+
+  body:has(.official-print-layout) {
+    padding: 0 !important;
   }
 
   aside,
@@ -783,6 +793,45 @@ main:has([data-permissions-page='true']) > div:last-child {
   padding: 0 0 1px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.official-print-mr-ruled-text {
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+  unicode-bidi: plaintext;
+}
+
+.official-print-mr-flowing-area {
+  position: relative;
+  padding-bottom: 1px;
+  overflow: hidden;
+}
+
+.official-print-mr-flowing-rules {
+  position: absolute;
+  inset: 0 10px;
+  pointer-events: none;
+}
+
+.official-print-mr-flowing-rules > div {
+  box-sizing: border-box;
+  height: 6.5mm;
+  border-bottom: 1px dotted #000;
+}
+
+.official-print-mr-flowing-area.official-print-mr-solid-lines .official-print-mr-flowing-rules > div {
+  border-bottom-style: solid;
+}
+
+.official-print-mr-flowing-text {
+  position: relative;
+  z-index: 1;
+  line-height: 6.5mm;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: start;
+  unicode-bidi: plaintext;
 }
 
 .official-print-mr-solid-lines .official-print-mr-ruled-value,
@@ -1587,6 +1636,16 @@ main:has([data-permissions-page='true']) > div:last-child {
   vertical-align: top;
 }
 
+.equipment-information-company-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5mm;
+}
+
+.equipment-information-print-content td.equipment-information-dimensions-value {
+  vertical-align: middle;
+}
+
 /* FORM-10-0118: one continuous double outer frame, with a single uniform
    line for every row and column inside it. */
 .equipment-information-form-grid {
@@ -1633,6 +1692,27 @@ main:has([data-permissions-page='true']) > div:last-child {
 .equipment-information-print-content {
   width: 100%;
   margin-inline: auto;
+}
+
+.equipment-information-approvals > div {
+  display: flex;
+  align-items: baseline;
+  gap: 14mm;
+  margin-top: 2.5mm;
+}
+
+.equipment-information-approvals > div > span:first-child {
+  min-width: 78mm;
+}
+
+.equipment-information-approval-signature {
+  display: inline-block;
+  width: auto;
+  height: 9mm;
+  max-width: 32mm;
+  margin-inline-start: 3mm;
+  object-fit: contain;
+  vertical-align: middle;
 }
 
 @media print {
@@ -1682,20 +1762,43 @@ main:has([data-permissions-page='true']) > div:last-child {
   .equipment-information-print-content {
     width: 186mm;
     max-width: 100%;
-    margin: 12mm auto 0;
-    font-size: 12px;
-    line-height: 1.15;
+    margin: 5mm auto 0;
+    font-size: 11px;
+    line-height: 1.1;
   }
 
   /* FORM-10-0118 row proportions match the controlled paper form. */
-  .equipment-information-details tr { height: 6mm; }
+  .equipment-information-details tr { height: 5.5mm; }
   .equipment-information-details tr:nth-child(6),
   .equipment-information-details tr:nth-child(7),
-  .equipment-information-details tr:nth-child(8) { height: 14mm; }
-  .equipment-information-details tr:nth-child(9) { height: 9mm; }
-  .equipment-information-utilities tr { height: 13mm; }
+  .equipment-information-details tr:nth-child(8) { height: 12mm; }
+  .equipment-information-details tr:nth-child(9) { height: 8mm; }
+  .equipment-information-utilities tr { height: 11mm; }
   .equipment-information-others tr,
-  .equipment-information-safety tr { height: var(--equipment-extra-row-height, 6mm); }
+  .equipment-information-safety tr { height: 7mm; }
+
+  .equipment-information-form-grid .official-print-section-title {
+    min-height: 6mm;
+  }
+
+  .equipment-information-approvals > div {
+    margin-top: 1.5mm;
+  }
+
+  /* Keep every equipment record at the same controlled dimensions. Content
+     may wrap inside its row, but the browser must not redistribute spare page
+     height differently from one machine to another. */
+  .equipment-information-form-grid {
+    height: auto;
+  }
+
+  .equipment-information-details,
+  .equipment-information-utilities,
+  .equipment-information-others,
+  .equipment-information-safety {
+    table-layout: fixed;
+    width: 100%;
+  }
 }
 
 .official-print-pm-header td {
@@ -1926,6 +2029,7 @@ main:has([data-permissions-page='true']) > div:last-child {
   overflow-wrap: anywhere;
   word-break: break-word;
   line-height: 1.35;
+  font-size: 12.5px;
 }
 
 .official-print-pm-data-row td {
@@ -2190,6 +2294,57 @@ main:has([data-permissions-page='true']) > div:last-child {
     font-size: 13px;
   }
 
+  /* A 16-point landscape chunk must fit inside one physical A4 sheet even
+     when Chromium's optional print header/footer is enabled. */
+  .official-print-layout-landscape .official-print-pm-page {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+    box-sizing: border-box;
+    height: 210mm;
+    padding-top: 5mm;
+    padding-bottom: 5mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .official-print-layout-landscape .official-print-pm-page .official-print-pm-content {
+    margin-top: 0;
+  }
+
+  .official-print-layout-landscape .official-print-pm-table {
+    margin-top: 12px !important;
+  }
+
+  .official-print-layout-landscape .official-print-pm-table thead tr:nth-child(1) th,
+  .official-print-layout-landscape .official-print-pm-table thead tr:nth-child(2) th {
+    height: 20px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .official-print-layout-landscape .official-print-pm-table thead tr:nth-child(3) th {
+    height: 52px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .official-print-layout-landscape .official-print-pm-table tbody tr.official-print-row-tall td {
+    min-height: 0;
+    padding-top: 1px;
+    padding-bottom: 1px;
+    line-height: 1.1;
+  }
+
+  .official-print-layout-landscape .official-print-pm-table td.official-print-pm-point-text {
+    line-height: 1.2;
+    font-size: 15px;
+  }
+
+  .official-print-layout-landscape .official-print-pm-table tbody tr.official-print-row-tall td:first-child {
+    font-size: 13px;
+  }
+
   /* Screen preview uses a 210mm page height for landscape. It must not carry
      into printing, because the printable A4 area is shorter after margins and
      would otherwise create a blank page after every PM sheet. */
@@ -2202,7 +2357,7 @@ main:has([data-permissions-page='true']) > div:last-child {
     width: auto;
     min-height: auto;
     margin: 0;
-    padding: 0;
+    padding: 12mm;
     box-shadow: none;
   }
 

@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Route, Switch, Router as WouterRouter, Redirect } from 'wouter';
+import { useLayoutEffect } from 'react';
+import { Route, Switch, Router as WouterRouter, Redirect, useLocation } from 'wouter';
 
 import { AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -56,6 +57,54 @@ import MonthlyMaintenanceEvaluationPrintPage from './pages/print/monthly-mainten
 import AnnualMaintenanceSummaryPrintPage from './pages/print/annual-maintenance-summary';
 
 const queryClient = new QueryClient();
+
+const scrollStoragePrefix = 'cmms-scroll-position:';
+
+function ScrollPositionRestoration() {
+  const [location] = useLocation();
+
+  useLayoutEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    const storageKey = `${scrollStoragePrefix}${location}`;
+    const isPrintOrLogin = location.startsWith('/print/') || location === '/login';
+    const savedPosition = isPrintOrLogin
+      ? 0
+      : Number(sessionStorage.getItem(storageKey) ?? 0);
+
+    const restorePosition = () => {
+      if (savedPosition <= 0) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        return;
+      }
+
+      // Data-backed tables may grow after the route first renders. Retry only
+      // while the requested position is still outside the available page.
+      if (document.documentElement.scrollHeight < savedPosition + window.innerHeight) {
+        return;
+      }
+      window.scrollTo({ top: savedPosition, left: 0, behavior: 'auto' });
+    };
+
+    restorePosition();
+    const retries = [
+      window.setTimeout(restorePosition, 100),
+      window.setTimeout(restorePosition, 300),
+      window.setTimeout(restorePosition, 700),
+    ];
+
+    return () => {
+      retries.forEach(window.clearTimeout);
+      if (!isPrintOrLogin) {
+        sessionStorage.setItem(storageKey, String(window.scrollY));
+      }
+    };
+  }, [location]);
+
+  return null;
+}
 
 function Router() {
   return (
@@ -158,7 +207,7 @@ function Router() {
 
       <Route path="/machines/:id/pm/header">
         {(params) => (
-          <ProtectedRoute permission="edit_header">
+          <ProtectedRoute permission="edit_header_preventive_maintenance">
             <PmHeaderPage params={params} />
           </ProtectedRoute>
         )}
@@ -448,6 +497,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+          <ScrollPositionRestoration />
           <AuthProvider>
             <LanguageProvider>
               <Router />

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from "lucide-react";
 
 type Point = {
   id: number;
@@ -23,6 +23,10 @@ export default function PmChecklistPage({ params }: { params: { id: string } }) 
   const queryClient = useQueryClient();
   const [pointText, setPointText] = useState("");
   const [resultType, setResultType] = useState<"yes_no" | "value" | "text">("yes_no");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editType, setEditType] = useState<"yes_no" | "value" | "text">("yes_no");
+  const [editOrder, setEditOrder] = useState(1);
 
   const { data = [] } = useQuery({
     queryKey: ["pm-checklist", machineId],
@@ -47,6 +51,25 @@ export default function PmChecklistPage({ params }: { params: { id: string } }) 
       apiRequest<Point>(`/machines/${machineId}/pm/checklist/${pointId}`, { method: "PATCH" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pm-checklist", machineId] }),
   });
+
+  const updatePoint = useMutation({
+    mutationFn: (pointId: number) =>
+      apiRequest<Point>(`/machines/${machineId}/pm/checklist/${pointId}`, {
+        method: "PUT",
+        body: JSON.stringify({ pointText: editText, resultType: editType, sortOrder: editOrder }),
+      }),
+    onSuccess: () => {
+      setEditingId(null);
+      queryClient.invalidateQueries({ queryKey: ["pm-checklist", machineId] });
+    },
+  });
+
+  function startEditing(point: Point) {
+    setEditingId(point.id);
+    setEditText(point.pointText);
+    setEditType(point.resultType);
+    setEditOrder(point.sortOrder);
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -112,15 +135,57 @@ export default function PmChecklistPage({ params }: { params: { id: string } }) 
             <TableBody>
               {activePoints.map((point) => (
                 <TableRow key={point.id}>
-                  <TableCell>{point.sortOrder}</TableCell>
-                  <TableCell>{point.pointText}</TableCell>
-                  <TableCell>{point.resultType}</TableCell>
+                  <TableCell className="w-24">
+                    {editingId === point.id ? (
+                      <Input
+                        type="number"
+                        min={1}
+                        value={editOrder}
+                        onChange={(event) => setEditOrder(Number(event.target.value))}
+                        aria-label="Checklist point order"
+                      />
+                    ) : point.sortOrder}
+                  </TableCell>
+                  <TableCell>
+                    {editingId === point.id ? (
+                      <Input value={editText} onChange={(event) => setEditText(event.target.value)} autoFocus />
+                    ) : point.pointText}
+                  </TableCell>
+                  <TableCell className="w-44">
+                    {editingId === point.id ? (
+                      <Select value={editType} onValueChange={(value) => setEditType(value as typeof editType)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes_no">نعم / لا</SelectItem>
+                          <SelectItem value="text">Text / Value</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : point.resultType}
+                  </TableCell>
                   <TableCell>{point.isActive ? "Active" : "Inactive"}</TableCell>
                   <TableCell className="text-right">
-                    {point.isActive && (
-                      <Button variant="ghost" size="icon" onClick={() => deactivatePoint.mutate(point.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    {editingId === point.id ? (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={updatePoint.isPending || !editText.trim()}
+                          onClick={() => updatePoint.mutate(point.id)}
+                          aria-label="Save checklist point"
+                        ><Check className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => setEditingId(null)} aria-label="Cancel editing">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => startEditing(point)} aria-label="Edit checklist point">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deactivatePoint.mutate(point.id)} aria-label="Delete checklist point">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>

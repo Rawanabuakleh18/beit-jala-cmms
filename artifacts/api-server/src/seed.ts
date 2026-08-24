@@ -290,7 +290,13 @@ async function seed() {
     "manage_spare_parts",
     "record_spare_part_usage",
     "adjust_spare_parts",
-    "edit_header",
+    "edit_header_equipment_information",
+    "edit_header_preventive_maintenance",
+    "edit_header_corrective_maintenance",
+    "edit_header_closed_corrective_log",
+    "edit_header_annual_plan",
+    "edit_header_monthly_plan",
+    "edit_header_maintenance_request",
     "print_forms",
     "manage_signatures",
     "sign_assigned_fields",
@@ -342,7 +348,10 @@ async function seed() {
   await setUserPermissions(users.qa.id, ids([
     "view_dashboard", ...dashboardSectionPermissions, "view_machines", "view_equipment_information", "view_pm_records",
     "view_maintenance_plans", "view_annual_maintenance_plan", "view_monthly_maintenance_plan", "view_corrective_maintenance", "print_forms",
-    "qa_review_requests", "review_qa_requests", "edit_header", "sign_assigned_fields",
+    "qa_review_requests", "review_qa_requests",
+    "edit_header_equipment_information", "edit_header_preventive_maintenance",
+    "edit_header_corrective_maintenance", "edit_header_closed_corrective_log",
+    "edit_header_annual_plan", "edit_header_monthly_plan", "edit_header_maintenance_request", "sign_assigned_fields",
   ]));
   for (const manager of [users.engineeringManager, users.productionManager, users.qcManager, users.rdManager, users.qaManager]) {
     await setUserPermissions(manager.id, ids([

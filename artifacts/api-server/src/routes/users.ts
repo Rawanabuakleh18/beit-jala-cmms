@@ -199,7 +199,8 @@ router.put("/:id", requireActiveAuth, requirePermission("manage_users"), async (
       return;
     }
 
-    const { fullName, email, roleId, departmentId, password, employeeNumber } = req.body as {
+    const { username, fullName, email, roleId, departmentId, password, employeeNumber } = req.body as {
+      username?: string;
       fullName?: string;
       email?: string;
       roleId?: number;
@@ -209,6 +210,7 @@ router.put("/:id", requireActiveAuth, requirePermission("manage_users"), async (
     };
 
     const updateData: Partial<{
+      username: string;
       fullName: string | null;
       email: string | null;
       roleId: number;
@@ -218,6 +220,14 @@ router.put("/:id", requireActiveAuth, requirePermission("manage_users"), async (
       updatedAt: Date;
     }> = { updatedAt: new Date() };
 
+    if (username !== undefined) {
+      const normalizedUsername = username.trim();
+      if (normalizedUsername.length < 2) {
+        res.status(400).json({ error: "Username must be at least 2 characters" });
+        return;
+      }
+      updateData.username = normalizedUsername;
+    }
     if (fullName !== undefined) updateData.fullName = fullName || null;
     if (email !== undefined) updateData.email = email || null;
     if (roleId !== undefined) updateData.roleId = roleId;
@@ -225,11 +235,21 @@ router.put("/:id", requireActiveAuth, requirePermission("manage_users"), async (
     if (password) updateData.passwordHash = await hashPassword(password);
     if (employeeNumber !== undefined) updateData.employeeNumber = employeeNumber.trim() || null;
 
-    const [updated] = await db
-      .update(usersTable)
-      .set(updateData)
-      .where(eq(usersTable.id, id))
-      .returning({ id: usersTable.id });
+    let updated: { id: number } | undefined;
+    try {
+      [updated] = await db
+        .update(usersTable)
+        .set(updateData)
+        .where(eq(usersTable.id, id))
+        .returning({ id: usersTable.id });
+    } catch (err: unknown) {
+      const e = err as { code?: string; constraint?: string; cause?: { code?: string; constraint?: string } };
+      if ((e.code ?? e.cause?.code) === "23505") {
+        res.status(409).json({ error: "Username already exists" });
+        return;
+      }
+      throw err;
+    }
 
     if (!updated) {
       res.status(404).json({ error: "User not found" });

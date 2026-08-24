@@ -33,57 +33,30 @@ function chunk<T>(items: T[], size: number) {
   return pages.length ? pages : [[]];
 }
 
-function checklistPointHeightUnits(text: string, charactersPerLine: number) {
-  return text
-    .split(/\r?\n/)
-    .reduce((total, line) => total + Math.max(1, Math.ceil(line.trim().length / charactersPerLine)), 0);
-}
-
-function chunkChecklistPoints<T extends { pointText: string }>(
-  points: T[],
-  pageCapacity: number,
-  charactersPerLine: number,
-) {
-  const pages: T[][] = [];
-  let currentPage: T[] = [];
-  let usedCapacity = 0;
-
-  for (const point of points) {
-    const pointUnits = Math.min(pageCapacity, checklistPointHeightUnits(point.pointText, charactersPerLine));
-    if (currentPage.length && usedCapacity + pointUnits > pageCapacity) {
-      pages.push(currentPage);
-      currentPage = [];
-      usedCapacity = 0;
-    }
-    currentPage.push(point);
-    usedCapacity += pointUnits;
-  }
-
-  if (currentPage.length || !pages.length) pages.push(currentPage);
-  return pages;
-}
-
 function checklistRowHeight(pointCount: number, orientation: "portrait" | "landscape") {
-  // Landscape pages safely fit eleven normal-height checklist rows. Keeping this
-  // aligned with the paginator prevents a row from spilling onto a separate,
-  // mostly empty printed page.
-  const normalCapacity = orientation === "landscape" ? 11 : 15;
+  // Landscape uses compact rows so a full sixteen-point chunk stays on one A4
+  // sheet. This also avoids leaving only nine points on a fifth page for the
+  // common 61-point machine checklist.
+  const normalCapacity = orientation === "landscape" ? 16 : 15;
+  const baseHeight = orientation === "landscape" ? 28 : 34;
+  const growthPerUnusedRow = orientation === "landscape" ? 3 : 4;
   // With a short checklist, use the unused vertical room to make the official
   // form easier to read. Long text can still expand a row beyond this height.
-  return Math.min(46, 34 + Math.max(0, normalCapacity - pointCount) * 4);
+  return Math.min(46, baseHeight + Math.max(0, normalCapacity - pointCount) * growthPerUnusedRow);
 }
 
-function nameAndSignature(name: string | null, signature: string | null) {
+function displayedNameAndSignature(name: string | null, signature: string | null) {
   const normalizedName = name?.trim() ?? "";
   const normalizedSignature = signature?.trim() ?? "";
-  // Drawn signatures are stored as data:image URLs.  They must be rendered as
-  // an image in the printable form, not inserted as their Base64 text.
+
   if (normalizedSignature.startsWith("data:image/")) {
     return <div className="flex flex-col items-center gap-1"><span>{normalizedName}</span><img src={normalizedSignature} alt="Signature" className="h-8 max-w-full object-contain" /></div>;
   }
-  return normalizedSignature && normalizedSignature !== normalizedName
-    ? [normalizedName, normalizedSignature].filter(Boolean).join(" - ")
-    : normalizedName || normalizedSignature;
+
+  // The API already falls back to the account holder's name when no examiner
+  // name is entered. If a name is entered manually, print only that name and
+  // do not append the older account-name fallback stored in the signature.
+  return normalizedName || normalizedSignature;
 }
 
 function formatExecutionDate(date: string | null) {
@@ -115,16 +88,14 @@ export default function PmRecordPrintPage({ params }: { params: { id: string; re
     return map;
   }, [data]);
 
-  // Portrait has substantially more vertical room than landscape. Use a
-  // content-aware allowance so short or wrapped points stay together on one
-  // sheet whenever they physically fit; a new sheet is created only when the
-  // accumulated text needs it. Landscape stays deliberately tighter because
-  // its shorter page also contains the repeated official header.
-  const checklistPointsPerPage = printOrientation === "landscape" ? 11 : 20;
-  const checklistCharactersPerLine = printOrientation === "landscape" ? 65 : 45;
+  // Paginate by actual checklist rows. The landscape sheet has enough room for
+  // sixteen points; counting wrapped text as extra rows used to stop at nine
+  // and leave a large unused area at the bottom of the page.
   const checklistPages = useMemo(
-    () => chunkChecklistPoints(data?.checklistPoints ?? [], checklistPointsPerPage, checklistCharactersPerLine),
-    [data?.checklistPoints, checklistPointsPerPage, checklistCharactersPerLine],
+    () => printOrientation === "portrait"
+      ? chunk(data?.checklistPoints ?? [], 17)
+      : chunk(data?.checklistPoints ?? [], 16),
+    [data?.checklistPoints, printOrientation],
   );
   const inspectionColumnsPerPage = Math.min(10, Math.max(1, data?.header.inspectionColumnsPerPrintPage ?? 2));
   const inspectionPages = useMemo(() => chunk(data?.inspections ?? [], inspectionColumnsPerPage), [data?.inspections, inspectionColumnsPerPage]);
@@ -227,14 +198,14 @@ export default function PmRecordPrintPage({ params }: { params: { id: string; re
                         <td colSpan={2}>اسم الفاحص وتوقيعه:</td>
                         {Array.from({ length: inspectionColumnsPerPage }).map((_, inspectionIndex) => {
                           const inspection = inspectionPage[inspectionIndex];
-                          return <td key={inspection?.id ?? `examiner-${inspectionIndex}`}>{inspection ? nameAndSignature(inspection.examinerName, inspection.examinerSignature) : ""}</td>;
+                          return <td key={inspection?.id ?? `examiner-${inspectionIndex}`}>{inspection ? displayedNameAndSignature(inspection.examinerName, inspection.examinerSignature) : ""}</td>;
                         })}
                       </tr>
                       <tr className="official-print-row-tall">
                         <td colSpan={2}>اسم مستلم الماكينة وتوقيعه:</td>
                         {Array.from({ length: inspectionColumnsPerPage }).map((_, inspectionIndex) => {
                           const inspection = inspectionPage[inspectionIndex];
-                          return <td key={inspection?.id ?? `receiver-${inspectionIndex}`}>{inspection ? nameAndSignature(inspection.machineReceiverName, inspection.machineReceiverSignature) : ""}</td>;
+                          return <td key={inspection?.id ?? `receiver-${inspectionIndex}`}>{inspection ? displayedNameAndSignature(inspection.machineReceiverName, inspection.machineReceiverSignature) : ""}</td>;
                         })}
                       </tr>
                     </>}

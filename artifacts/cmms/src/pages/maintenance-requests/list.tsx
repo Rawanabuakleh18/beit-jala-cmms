@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Archive, ArrowLeft, BookOpen, Plus, Save, Trash2 } from "lucide-react";
+import { Archive, ArrowLeft, BookOpen, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import type { MaintenanceRequestSummary } from "./types";
+
+type MaintenanceRequestHeader = { companyName: string; documentName: string; documentNumber: string; effectiveOrExecutionDate: string | null; pageNumber: number; totalPages: number };
 
 function titleForScope(scope: string, t: (k: string) => string) {
   if (scope === "own") return t("maintenanceRequests.myRequests");
@@ -34,10 +38,28 @@ export default function MaintenanceRequestsListPage({ scope = "all" }: { scope?:
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const canSetNumberingStart = hasPermission("set_maintenance_request_number_start");
+  const canEditHeader = user?.roleName === "Admin" || hasPermission("edit_header_maintenance_request");
+  const [headerOpen, setHeaderOpen] = useState(false);
+  const [header, setHeader] = useState<MaintenanceRequestHeader>({
+    companyName: "Beit Jala Pharmaceutical Co.",
+    documentName: "Maintenance Request & Corrective Maintenance Report",
+    documentNumber: "FORM-10-0975-1",
+    effectiveOrExecutionDate: "18/03/2023",
+    pageNumber: 1,
+    totalPages: 1,
+  });
   const [numberingStart, setNumberingStart] = useState("");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const { data = [], isLoading } = useQuery({
-    queryKey: ["maintenance-requests", scope],
-    queryFn: () => apiRequest<MaintenanceRequestSummary[]>(`/maintenance-requests?scope=${scope}`),
+    queryKey: ["maintenance-requests", scope, selectedYear],
+    queryFn: () => apiRequest<MaintenanceRequestSummary[]>(`/maintenance-requests?scope=${scope}&year=${selectedYear}`),
+  });
+  const { data: savedHeader } = useQuery({ queryKey: ["maintenance-request-header-template"], queryFn: () => apiRequest<MaintenanceRequestHeader>("/maintenance-requests/header"), enabled: canEditHeader });
+  useEffect(() => { if (savedHeader) setHeader(savedHeader); }, [savedHeader]);
+  const saveHeader = useMutation({
+    mutationFn: () => apiRequest<MaintenanceRequestHeader>("/maintenance-requests/header", { method: "PUT", body: JSON.stringify(header) }),
+    onSuccess: (saved) => { setHeader(saved); setHeaderOpen(false); queryClient.invalidateQueries({ queryKey: ["maintenance-request-header-template"] }); },
+    onError: () => { /* Keep the dialog and entered values visible so the user can retry. */ },
   });
   const permanentDelete = useMutation({
     mutationFn: (id: number) => apiRequest(`/maintenance-requests/${id}/permanent`, { method: "DELETE" }),
@@ -85,6 +107,11 @@ export default function MaintenanceRequestsListPage({ scope = "all" }: { scope?:
           </div>
         </div>
         <div className="flex gap-2">
+          {canEditHeader && (
+            <Button type="button" variant="outline" onClick={() => setHeaderOpen(true)}>
+              <Pencil className="me-2 h-4 w-4" />Edit Header
+            </Button>
+          )}
           {hasPermission("manage_maintenance_requests") && (
             <Button variant="outline" asChild>
               <Link href="/maintenance-requests/closed-log"><BookOpen className="me-2 h-4 w-4" />{t("maintenanceRequests.closedLog")}</Link>
@@ -106,6 +133,19 @@ export default function MaintenanceRequestsListPage({ scope = "all" }: { scope?:
         </div>
       </div>
 
+      <Dialog open={headerOpen} onOpenChange={setHeaderOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Edit Maintenance Request Header</DialogTitle></DialogHeader>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div><Label>Document number</Label><Input value={header.documentNumber} onChange={(event) => setHeader({ ...header, documentNumber: event.target.value })} /></div>
+            <div><Label>Effective date</Label><Input value={header.effectiveOrExecutionDate ?? ""} onChange={(event) => setHeader({ ...header, effectiveOrExecutionDate: event.target.value || null })} /></div>
+            <p className="text-sm text-muted-foreground md:col-span-2">Changes apply to newly created maintenance requests only. Existing requests keep their saved header.</p>
+            <Button type="button" className="w-fit md:col-span-2" onClick={() => saveHeader.mutate()} disabled={saveHeader.isPending}><Save className="me-2 h-4 w-4" />Save Header</Button>
+            {saveHeader.isError && <p className="text-sm text-destructive md:col-span-2">Unable to save the header. Restart the server service, then try again.</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {canSetNumberingStart && (
         <Card>
           <CardContent className="flex flex-wrap items-end gap-3 p-4" dir="rtl">
@@ -123,6 +163,15 @@ export default function MaintenanceRequestsListPage({ scope = "all" }: { scope?:
       )}
 
       <Card>
+        <CardContent className="border-b p-4" dir="rtl">
+          <div className="flex items-end gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="maintenance-request-year">سنة الطلبات</Label>
+              <Input id="maintenance-request-year" className="w-32" type="number" min="2000" max="2100" value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value) || new Date().getFullYear())} />
+            </div>
+            <p className="pb-2 text-sm text-muted-foreground">يتم عرض طلبات السنة المحددة فقط.</p>
+          </div>
+        </CardContent>
         <CardContent className="p-0">
           <Table>
             <TableHeader>

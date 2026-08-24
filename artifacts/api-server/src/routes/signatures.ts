@@ -178,7 +178,18 @@ router.put("/users/:id/profile", requireAuth, requirePermission("manage_users"),
   try {
     const userId = Number(req.params.id);
     const signatureData = typeof req.body.signatureData === "string" ? req.body.signatureData : "";
-    if (!Number.isInteger(userId) || !signatureData.startsWith("data:image/")) { res.status(400).json({ error: "A drawn signature image is required" }); return; }
+    if (!Number.isInteger(userId)) { res.status(400).json({ error: "Invalid user ID" }); return; }
+    if (signatureData === "") {
+      const [updated] = await db.update(usersTable)
+        .set({ signatureData: null, updatedAt: new Date() })
+        .where(eq(usersTable.id, userId))
+        .returning({ id: usersTable.id });
+      if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+      await audit(req, "profile_signature_deleted", userId, { userId });
+      res.json({ id: userId, signatureData: null });
+      return;
+    }
+    if (!signatureData.startsWith("data:image/")) { res.status(400).json({ error: "A drawn signature image is required" }); return; }
     const updated = await replaceUserSignature(userId, signatureData);
     if (!updated) { res.status(404).json({ error: "User not found" }); return; }
     res.json(updated);

@@ -115,6 +115,7 @@ export default function PmHeaderPage({ params }: { params: { id: string } }) {
             <Save className="mr-2 h-4 w-4" />
             {save.isPending ? "Saving..." : "Save Header"}
           </Button>
+          <p className="text-sm text-muted-foreground md:col-span-2">رقم النموذج وتاريخ السريان يُطبّقان على جميع سجلات الصيانة الوقائية. باقي الحقول تبقى خاصة بهذه الماكينة.</p>
           {saveMessage && <p className={save.isError ? "self-center text-sm text-destructive" : "self-center text-sm text-green-700"}>{saveMessage}</p>}
         </CardContent>
       </Card>

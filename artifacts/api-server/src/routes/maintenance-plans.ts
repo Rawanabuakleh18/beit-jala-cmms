@@ -33,6 +33,24 @@ function toIsoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function dateInPlanYear(value: string, year: number) {
+  const match = value.match(/^\d{4}-(\d{2})-(\d{2})$/);
+  if (!match) return value;
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${match[1]}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+}
+
+function monthlyDateRange(year: number, month: number) {
+  const monthText = String(month).padStart(2, "0");
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return {
+    start: `${year}-${monthText}-01`,
+    end: `${year}-${monthText}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 function scheduledMonths(startDate: string | null, frequency: number | null, year = new Date().getFullYear()) {
   if (!startDate || !frequency || frequency < 1) return [];
   const start = new Date(`${startDate}T00:00:00Z`);
@@ -126,29 +144,30 @@ async function getMonthlyPlanHeader() {
 // FORM-10-1025-0 has one controlled header shared by every annual plan year.
 // Keeping it separate from the plan rows lets authorised users update the
 // document details once without changing any historical plan data.
-async function getAnnualPlanHeader() {
+async function getAnnualPlanHeader(year = ANNUAL_PLAN_HEADER_ID): Promise<typeof formHeadersTable.$inferSelect> {
   const [existing] = await db
     .select()
     .from(formHeadersTable)
     .where(
       and(
         eq(formHeadersTable.documentType, "ANNUAL_PM_PLAN"),
-        eq(formHeadersTable.documentId, ANNUAL_PLAN_HEADER_ID),
+        eq(formHeadersTable.documentId, year),
       ),
     );
   if (existing) return existing;
 
+  const template: typeof formHeadersTable.$inferSelect | null = year === ANNUAL_PLAN_HEADER_ID ? null : await getAnnualPlanHeader();
   const [created] = await db
     .insert(formHeadersTable)
     .values({
       documentType: "ANNUAL_PM_PLAN",
-      documentId: ANNUAL_PLAN_HEADER_ID,
-      companyName: "Beit Jala Pharmaceutical Co.",
-      documentName: "Preventive Maintenance Plan",
-      documentNumber: "FORM-10-1025-0",
-      effectiveOrExecutionDate: "18/3/2023",
-      pageNumber: 1,
-      totalPages: 1,
+      documentId: year,
+      companyName: template?.companyName ?? "Beit Jala Pharmaceutical Co.",
+      documentName: template?.documentName ?? "Preventive Maintenance Plan",
+      documentNumber: template?.documentNumber ?? "FORM-10-1025-0",
+      effectiveOrExecutionDate: template?.effectiveOrExecutionDate ?? "18/3/2023",
+      pageNumber: template?.pageNumber ?? 1,
+      totalPages: template?.totalPages ?? 1,
     })
     .returning();
   return created!;
@@ -191,6 +210,9 @@ async function getOrCreateAnnualPlan(year: number) {
     .from(annualPmPlansTable)
     .where(eq(annualPmPlansTable.year, year));
   const plan = existing ?? (await db.insert(annualPmPlansTable).values({ year }).returning())[0]!;
+  // Every year is a self-contained snapshot. New rows take their initial PM
+  // frequency and start date from the machine information. Opening an existing
+  // plan must never pull later machine-setting changes into that year's rows.
   const machines = await db
     .select({
       id: machinesTable.id,
@@ -211,7 +233,11 @@ async function getOrCreateAnnualPlan(year: number) {
 
   const existingRows = await db.select().from(annualPmPlanRowsTable).where(eq(annualPmPlanRowsTable.planId, plan.id));
   const existingByMachine = new Map(existingRows.map((row) => [row.machineId, row]));
-  for (const machine of machines.filter((item) => item.pmFrequencyMonths && item.pmStartDate)) {
+  for (const machine of machines) {
+    const sourceFrequency = machine.pmFrequencyMonths;
+    const sourceStartDate = machine.pmStartDate;
+    if (!sourceFrequency || !sourceStartDate) continue;
+    const planStartDate = dateInPlanYear(sourceStartDate, year);
     const values = {
       planId: plan.id,
       machineId: machine.id,
@@ -219,17 +245,16 @@ async function getOrCreateAnnualPlan(year: number) {
       machineName: machine.machineName,
       machineLocation: machine.location ?? null,
       machineCode: machine.machineNumber,
-      frequencyMonths: machine.pmFrequencyMonths,
+      frequencyMonths: sourceFrequency,
       duration: "",
-      startDate: machine.pmStartDate,
-      finishDate: machine.pmStartDate,
+      startDate: planStartDate,
+      finishDate: planStartDate,
       scheduledMonths: JSON.stringify(
-        scheduledMonths(machine.pmStartDate, machine.pmFrequencyMonths, year),
+        scheduledMonths(planStartDate, sourceFrequency, year),
       ),
     };
     const current = existingByMachine.get(machine.id);
     if (!current) await db.insert(annualPmPlanRowsTable).values(values);
-    else if (!current.isOverride) await db.update(annualPmPlanRowsTable).set(values).where(eq(annualPmPlanRowsTable.id, current.id));
   }
   return plan;
 }
@@ -246,6 +271,7 @@ async function getAnnualRows(planId: number) {
 }
 
 async function getOrCreateMonthlyPlan(year: number, month: number) {
+  const monthRange = monthlyDateRange(year, month);
   const [existing] = await db
     .select()
     .from(monthlyPmPlansTable)
@@ -262,10 +288,6 @@ async function getOrCreateMonthlyPlan(year: number, month: number) {
   const currentByAnnualRow = new Map(currentRows.filter((row) => row.annualPlanRowId !== null).map((row) => [row.annualPlanRowId!, row]));
   const scheduledRows = annualRows.filter((row) => parseMonths(row.scheduledMonths).includes(month));
   for (const [index, row] of scheduledRows.entries()) {
-      const plannedDate =
-        row.startDate && new Date(row.startDate).getMonth() + 1 === month
-          ? row.startDate
-          : toIsoDate(new Date(Date.UTC(year, month - 1, 1)));
       const values = {
         planId: plan.id,
         annualPlanRowId: row.id,
@@ -275,8 +297,8 @@ async function getOrCreateMonthlyPlan(year: number, month: number) {
         sectionName: row.department,
         machineName: row.machineName,
         identificationNumber: row.machineCode,
-        plannedDateFrom: plannedDate,
-        plannedDateTo: plannedDate,
+        plannedDateFrom: monthRange.start,
+        plannedDateTo: monthRange.end,
         status: "due",
       };
       const current = currentByAnnualRow.get(row.id);
@@ -287,7 +309,7 @@ async function getOrCreateMonthlyPlan(year: number, month: number) {
         machineName: values.machineName,
         identificationNumber: values.identificationNumber,
         ...(!current.actualDate && !current.plannedDateIsOverride
-          ? { plannedDateFrom: plannedDate, plannedDateTo: plannedDate }
+          ? { plannedDateFrom: monthRange.start, plannedDateTo: monthRange.end }
           : {}),
       }).where(eq(monthlyPmPlanRowsTable.id, current.id));
   }
@@ -300,8 +322,8 @@ async function getOrCreateMonthlyPlan(year: number, month: number) {
   const reordered = await db.select({ id: monthlyPmPlanRowsTable.id }).from(monthlyPmPlanRowsTable)
     .where(eq(monthlyPmPlanRowsTable.planId, plan.id)).orderBy(asc(monthlyPmPlanRowsTable.rowNumber));
   for (const [index, row] of reordered.entries()) await db.update(monthlyPmPlanRowsTable).set({ rowNumber: index + 1 }).where(eq(monthlyPmPlanRowsTable.id, row.id));
-  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-  const monthEnd = `${year}-${String(month).padStart(2, "0")}-31`;
+  const monthStart = monthRange.start;
+  const monthEnd = monthRange.end;
   const rowsToReconcile = await db.select().from(monthlyPmPlanRowsTable)
     .where(and(
       eq(monthlyPmPlanRowsTable.planId, plan.id),
@@ -309,12 +331,14 @@ async function getOrCreateMonthlyPlan(year: number, month: number) {
       eq(monthlyPmPlanRowsTable.isManuallyRemoved, false),
     ));
   for (const row of rowsToReconcile) {
+    const periodStart = row.plannedDateFrom ?? monthStart;
+    const periodEnd = row.plannedDateTo ?? row.plannedDateFrom ?? monthEnd;
     const [savedInspection] = await db.select({ inspectionDate: pmInspectionsTable.inspectionDate })
       .from(pmInspectionsTable)
       .where(and(
         eq(pmInspectionsTable.machineId, row.machineId),
-        gte(pmInspectionsTable.inspectionDate, monthStart),
-        lte(pmInspectionsTable.inspectionDate, monthEnd),
+        gte(pmInspectionsTable.inspectionDate, periodStart),
+        lte(pmInspectionsTable.inspectionDate, periodEnd),
       ))
       .orderBy(desc(pmInspectionsTable.inspectionDate), desc(pmInspectionsTable.id))
       .limit(1);
@@ -358,7 +382,7 @@ router.get(
 router.put(
   "/monthly/header",
   requireAuth,
-  requirePermission("edit_monthly_maintenance_plan"),
+  requirePermission("edit_header_monthly_plan"),
   async (req, res, next) => {
     try {
       const current = await getMonthlyPlanHeader();
@@ -394,9 +418,11 @@ router.get(
   "/annual/header",
   requireAuth,
   requirePermission("view_annual_maintenance_plan"),
-  async (_req, res, next) => {
+  async (req, res, next) => {
     try {
-      res.json(await getAnnualPlanHeader());
+      const year = Number(req.query.year);
+      if (!Number.isInteger(year) || year < 2000 || year > 2100) { res.status(400).json({ error: "Valid year is required" }); return; }
+      res.json(await getAnnualPlanHeader(year));
     } catch (err) {
       next(err);
     }
@@ -406,10 +432,12 @@ router.get(
 router.put(
   "/annual/header",
   requireAuth,
-  requirePermission("edit_annual_maintenance_plan"),
+  requirePermission("edit_header_annual_plan"),
   async (req, res, next) => {
     try {
-      const current = await getAnnualPlanHeader();
+      const year = Number(req.query.year);
+      if (!Number.isInteger(year) || year < 2000 || year > 2100) { res.status(400).json({ error: "Valid year is required" }); return; }
+      const current = await getAnnualPlanHeader(year);
       const body = req.body as Partial<typeof formHeadersTable.$inferInsert>;
       const [saved] = await db
         .update(formHeadersTable)
@@ -676,14 +704,13 @@ router.post(
           ),
         )
         .limit(1);
-      const defaultDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      const defaultRange = monthlyDateRange(year, month);
       if (existingMachineRow) {
         const [updatedRow] = await db
           .update(monthlyPmPlanRowsTable)
           .set({
-            plannedDateFrom: body.plannedDateFrom || defaultDate,
-            plannedDateTo:
-              body.plannedDateTo || body.plannedDateFrom || defaultDate,
+            plannedDateFrom: body.plannedDateFrom || defaultRange.start,
+            plannedDateTo: body.plannedDateTo || defaultRange.end,
             isManuallyRemoved: false,
             updatedAt: new Date(),
           })
@@ -708,9 +735,8 @@ router.post(
           sectionName: machine.departmentName,
           machineName: machine.machineName,
           identificationNumber: machine.machineNumber,
-          plannedDateFrom: body.plannedDateFrom || defaultDate,
-          plannedDateTo:
-            body.plannedDateTo || body.plannedDateFrom || defaultDate,
+          plannedDateFrom: body.plannedDateFrom || defaultRange.start,
+          plannedDateTo: body.plannedDateTo || defaultRange.end,
           status: "due",
         })
         .returning();
@@ -754,7 +780,7 @@ router.get(
 router.put(
   "/monthly/:year/:month",
   requireAuth,
-  requirePermission("edit_monthly_maintenance_plan"),
+  requireAnyPermission(["edit_monthly_maintenance_plan", "edit_header_monthly_plan"]),
   async (req, res, next) => {
     try {
       const year = parseYear(req.params.year);
@@ -762,7 +788,7 @@ router.put(
       const plan = await getOrCreateMonthlyPlan(year, month);
       const permissions = req.session.permissions ?? [];
       const isAdmin = req.session.roleName === "Admin";
-      const canEditHeader = isAdmin || permissions.includes("edit_monthly_maintenance_plan");
+      const canEditHeader = isAdmin || permissions.includes("edit_header_monthly_plan");
       const canEditRows = isAdmin || permissions.includes("edit_monthly_maintenance_plan");
       const body = req.body as Record<string, unknown> & {
         rows?: Array<{

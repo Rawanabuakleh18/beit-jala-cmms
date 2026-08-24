@@ -39,6 +39,7 @@ export const equipmentInformationTable = pgTable(
       precision: 10,
       scale: 2,
     }),
+    dimensionsNote: text("dimensions_note"),
     weightKg: numeric("weight_kg", { precision: 10, scale: 2 }),
     utilitiesPowerSupply: text("utilities_power_supply"),
     utilitiesAir: text("utilities_air"),

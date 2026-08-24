@@ -89,6 +89,21 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
       description: getErrorMessage(error, "تعذر حفظ التعديلات. حاول مرة أخرى."),
     }),
   });
+  const addLogRow = useMutation({
+    mutationFn: () => apiRequest(`/machines/${machineId}/corrective-maintenance/events`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+    onSuccess: (event: CorrectiveMaintenanceRecord["events"][number]) => {
+      queryClient.invalidateQueries({ queryKey: ["machine-cm-record", machineId] });
+      beginEventEdit(event);
+    },
+    onError: (error) => toast({
+      variant: "destructive",
+      title: "تعذر إضافة صف الصيانة",
+      description: getErrorMessage(error, "تعذر إضافة الصف. حاول مرة أخرى."),
+    }),
+  });
   const deleteLogRow = useMutation({
     mutationFn: (eventId: number) => apiRequest(`/machines/${machineId}/corrective-maintenance/events/${eventId}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["machine-cm-record", machineId] }),
@@ -167,7 +182,7 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
               <div><Label>Machine number</Label><Input value={active.machineNumber} readOnly /></div>
               <div><Label>Machine location</Label><Input value={active.machineLocation ?? ""} readOnly /></div>
               <div><Label>Start-up date</Label><Input value={active.startupDate ?? ""} readOnly /></div>
-              {!isHistorical && hasPermission("edit_header") && (
+              {!isHistorical && hasPermission("edit_header_corrective_maintenance") && (
                 <div className="md:col-span-4 flex gap-2">
                   {isEditingHeader ? (
                     <>
@@ -177,6 +192,7 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
                       <Button type="button" variant="outline" onClick={() => setIsEditingHeader(false)}>
                         <X className="mr-2 h-4 w-4" />Cancel
                       </Button>
+                      <span className="self-center text-sm text-muted-foreground">رقم المستند وتاريخ التنفيذ يُطبّقان على جميع السجلات الحالية والمستقبلية.</span>
                     </>
                   ) : (
                     <Button type="button" variant="outline" onClick={() => setIsEditingHeader(true)}>
@@ -191,7 +207,10 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
           <Card>
             <CardHeader dir="rtl" className="flex-row items-center justify-between space-y-0">
               <CardTitle>سجل أعمال الصيانة العلاجية</CardTitle>
-              {!isHistorical && <p className="text-sm font-normal text-muted-foreground">تُضاف الصفوف تلقائياً بعد قبول الهندسة لطلب الصيانة.</p>}
+              <div className="flex items-center gap-3">
+                {!isHistorical && <p className="text-sm font-normal text-muted-foreground">تُضاف الصفوف تلقائياً بعد قبول الهندسة لطلب الصيانة.</p>}
+                {canEditLog && <Button size="sm" onClick={() => addLogRow.mutate()} disabled={addLogRow.isPending}><Plus className="ml-1 h-4 w-4" />إضافة صف</Button>}
+              </div>
             </CardHeader>
             <CardContent dir="rtl" className="overflow-x-auto">
               {isHistorical && <p className="mb-4 text-sm text-muted-foreground">هذا السجل مؤرشف ومحفوظ للرجوع إليه فقط.</p>}
@@ -228,7 +247,7 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
                         {isEditingEvent && !event.requestId ? <Input className="min-w-32" value={eventDraft.requestReportNumber} onChange={(input) => setEventDraft((draft) => ({ ...draft, requestReportNumber: input.target.value }))} /> : event.requestId ? <Link href={`/maintenance-requests/${event.requestId}`}>{event.requestReportNumber}</Link> : event.requestReportNumber || "-"}
                       </TableCell>
                       <TableCell>{isEditingEvent ? <select className="flex h-10 min-w-28 rounded-md border border-input bg-background px-3 text-sm" value={eventDraft.maintenanceType} onChange={(input) => setEventDraft((draft) => ({ ...draft, maintenanceType: input.target.value }))}><option value="normal">عادي</option><option value="urgent">مستعجل</option></select> : maintenanceTypeLabel(event.maintenanceType ?? event.priority)}</TableCell>
-                      <TableCell>{isEditingEvent ? <Textarea className="min-w-40" value={eventDraft.actionsTaken} onChange={(input) => setEventDraft((draft) => ({ ...draft, actionsTaken: input.target.value }))} /> : event.actionsTaken || "-"}</TableCell>
+                      <TableCell className="w-72 max-w-72">{isEditingEvent ? <Textarea className="min-h-24 w-72 whitespace-pre-wrap break-words [overflow-wrap:anywhere]" value={eventDraft.actionsTaken} onChange={(input) => setEventDraft((draft) => ({ ...draft, actionsTaken: input.target.value }))} /> : <div className="w-72 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{event.actionsTaken || "-"}</div>}</TableCell>
                       <TableCell>{isEditingEvent ? <Input className="min-w-32" value={eventDraft.technicianName} onChange={(input) => setEventDraft((draft) => ({ ...draft, technicianName: input.target.value }))} /> : event.technicianName || "-"}</TableCell>
                       <TableCell>{isEditingEvent ? <Textarea className="min-w-40" value={eventDraft.sparePartsUsed} onChange={(input) => setEventDraft((draft) => ({ ...draft, sparePartsUsed: input.target.value }))} /> : event.sparePartsUsed || "-"}</TableCell>
                       <TableCell>{isEditingEvent ? <div className="space-y-1">{eventDraft.repairTimeSlots.map((slot, index) => <Input key={index} className="min-w-36" type="date" value={slot.date} onChange={(input) => setEventDraft((draft) => ({ ...draft, repairTimeSlots: draft.repairTimeSlots.map((item, slotIndex) => slotIndex === index ? { ...item, date: input.target.value } : item) }))} />)}</div> : (repairSlots.length ? <div className="space-y-1 whitespace-nowrap">{repairSlots.map((slot, index) => <div key={index}>{slot.date || "-"}</div>)}</div> : "-")}</TableCell>

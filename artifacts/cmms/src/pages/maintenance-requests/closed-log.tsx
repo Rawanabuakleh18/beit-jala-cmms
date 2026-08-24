@@ -55,7 +55,7 @@ export default function ClosedCorrectiveMaintenanceLogPage() {
     queryFn: () => apiRequest<ClosedCorrectiveMaintenanceLogRow[]>("/maintenance-requests/closed-log"),
   });
   const canManage = hasPermission("manage_maintenance_requests");
-  const canEditHeader = hasPermission("edit_header");
+  const canEditHeader = hasPermission("edit_header_closed_corrective_log");
   const canEditLogRows = hasPermission("edit_closed_corrective_maintenance_log");
   const { data: savedHeader } = useQuery({
     queryKey: ["closed-corrective-maintenance-log-header"],

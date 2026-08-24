@@ -20,6 +20,7 @@ import { getErrorMessage } from "@/lib/error-message";
 
 type TechnicianOption = { id: number; username: string; fullName: string | null };
 type HandoverSignature = { fieldName: string; userId: number };
+type MaintenanceRequestHeader = { companyName: string; documentName: string; documentNumber: string; effectiveOrExecutionDate: string | null; pageNumber: number; totalPages: number };
 
 export default function MaintenanceRequestDetailPage({ params }: { params: { id: string } }) {
   const requestId = Number(params.id);
@@ -47,10 +48,22 @@ export default function MaintenanceRequestDetailPage({ params }: { params: { id:
   const [externalDialogOpen, setExternalDialogOpen] = useState(false);
   const [manualRequestReportNumber, setManualRequestReportNumber] = useState("");
   const [approvedRequestReportNumber, setApprovedRequestReportNumber] = useState("");
+  const [header, setHeader] = useState<MaintenanceRequestHeader | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["maintenance-request", requestId],
     queryFn: () => apiRequest<MaintenanceRequestDetail>(`/maintenance-requests/${requestId}`),
+  });
+  const { data: savedHeader } = useQuery({
+    queryKey: ["maintenance-request-header", requestId],
+    queryFn: () => apiRequest<MaintenanceRequestHeader>(`/maintenance-requests/header?requestId=${requestId}`),
+  });
+  const { data: templateHeader } = useQuery({ queryKey: ["maintenance-request-header-template"], queryFn: () => apiRequest<MaintenanceRequestHeader>("/maintenance-requests/header"), enabled: hasPermission("edit_header_maintenance_request") });
+  useEffect(() => { if (templateHeader) setHeader(templateHeader); }, [templateHeader]);
+  const saveHeader = useMutation({
+    mutationFn: () => apiRequest<MaintenanceRequestHeader>("/maintenance-requests/header", { method: "PUT", body: JSON.stringify(header) }),
+    onSuccess: (saved) => { setHeader(saved); queryClient.invalidateQueries({ queryKey: ["maintenance-request-header-template"] }); toast({ title: "تم الحفظ", description: "سيُستخدم الهيدر في طلبات الصيانة الجديدة فقط." }); },
+    onError: (error) => toast({ variant: "destructive", title: "تعذر الحفظ", description: getErrorMessage(error, "تعذر حفظ هيدر طلب الصيانة.") }),
   });
   const { data: technicians = [] } = useQuery({
     queryKey: ["maintenance-request-technicians"],
@@ -324,12 +337,21 @@ export default function MaintenanceRequestDetailPage({ params }: { params: { id:
 
       <div className="rounded-md border bg-white p-6 text-black shadow-sm print:border-none print:p-0 print:shadow-none">
         <OfficialFormHeader
-          documentName="Maintenance Request / Corrective Maintenance Report"
-          documentNumber="FORM-10-0975 / LOG-00-0102-3"
-          effectiveOrExecutionDate={request.requestDate}
+          companyName={savedHeader?.companyName}
+          documentName={savedHeader?.documentName ?? "Maintenance Request / Corrective Maintenance Report"}
+          documentNumber={savedHeader?.documentNumber ?? "FORM-10-0975-1"}
+          effectiveOrExecutionDate={savedHeader?.effectiveOrExecutionDate ?? request.requestDate}
+          page={savedHeader ? `Page ${savedHeader.pageNumber} of ${savedHeader.totalPages}` : undefined}
           machineName={request.machineName}
           machineNumber={request.machineNumber}
         />
+        {hasPermission("edit_header_maintenance_request") && header && (
+          <div className="mt-4 grid gap-3 border-t pt-4 md:grid-cols-2 print:hidden">
+            <div><Label>Document number</Label><Input value={header.documentNumber} onChange={(event) => setHeader({ ...header, documentNumber: event.target.value })} /></div>
+            <div><Label>Effective date</Label><Input value={header.effectiveOrExecutionDate ?? ""} onChange={(event) => setHeader({ ...header, effectiveOrExecutionDate: event.target.value || null })} /></div>
+            <Button type="button" className="w-fit md:col-span-2" onClick={() => saveHeader.mutate()} disabled={saveHeader.isPending}><Save className="mr-2 h-4 w-4" />Save Header</Button>
+          </div>
+        )}
       </div>
 
       <form onSubmit={submitRequestDetails}>

@@ -15,7 +15,7 @@ import {
   usersTable,
   auditLogsTable,
 } from "@workspace/db";
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { parseIdParam, requireAnyPermission, requireAuth, requirePermission } from "../lib/auth.js";
 
 const router = Router({ mergeParams: true });
@@ -41,23 +41,14 @@ function formatPoint(point: typeof pmChecklistPointsTable.$inferSelect) {
   };
 }
 
-async function normalizeChecklistOrder(machineId: number) {
-  const points = await db
-    .select({ id: pmChecklistPointsTable.id })
+async function nextChecklistOrder(machineId: number) {
+  const [lastPoint] = await db
+    .select({ sortOrder: pmChecklistPointsTable.sortOrder })
     .from(pmChecklistPointsTable)
     .where(and(eq(pmChecklistPointsTable.machineId, machineId), eq(pmChecklistPointsTable.isActive, true)))
-    .orderBy(asc(pmChecklistPointsTable.sortOrder), asc(pmChecklistPointsTable.createdAt), asc(pmChecklistPointsTable.id));
-
-  await Promise.all(
-    points.map((point, index) =>
-      db
-        .update(pmChecklistPointsTable)
-        .set({ sortOrder: index + 1, updatedAt: new Date() })
-        .where(eq(pmChecklistPointsTable.id, point.id)),
-    ),
-  );
-
-  return points.length + 1;
+    .orderBy(desc(pmChecklistPointsTable.sortOrder), desc(pmChecklistPointsTable.id))
+    .limit(1);
+  return (lastPoint?.sortOrder ?? 0) + 1;
 }
 
 async function machineExists(machineId: number) {
@@ -82,11 +73,17 @@ async function getOrCreateHeader(machineId: number) {
   if (existing) return existing;
 
   const machine = await machineExists(machineId);
+  const [sharedHeader] = await db.select({
+    procedureFormNumber: pmHeadersTable.procedureFormNumber,
+    effectiveDate: pmHeadersTable.effectiveDate,
+  }).from(pmHeadersTable).orderBy(desc(pmHeadersTable.updatedAt)).limit(1);
   const [created] = await db
     .insert(pmHeadersTable)
     .values({
       machineId,
       department: machine?.departmentName ?? null,
+      procedureFormNumber: sharedHeader?.procedureFormNumber ?? "LOG-00-0102",
+      effectiveDate: sharedHeader?.effectiveDate ?? null,
       columnsPerRecord: 5,
       inspectionColumnsPerPrintPage: 2,
     })
@@ -217,15 +214,17 @@ async function rolloverCompletedRecord(machineId: number) {
   return nextRecord!;
 }
 
-// A saved PM inspection is the source of truth for completing a scheduled
-// monthly activity. Membership in the machine's monthly plan is sufficient:
-// Planned From/To are planning guidance and must not block actual completion.
+// An inspection completes only a row whose planned period contains its date.
 async function completeScheduledMonthlyPm(machineId: number, inspectionDate: string) {
   const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(inspectionDate);
   if (!match) return;
   const year = Number(match[1]);
   const month = Number(match[2]);
-  const scheduledRows = await db.select({ id: monthlyPmPlanRowsTable.id })
+  const scheduledRows = await db.select({
+    id: monthlyPmPlanRowsTable.id,
+    plannedDateFrom: monthlyPmPlanRowsTable.plannedDateFrom,
+    plannedDateTo: monthlyPmPlanRowsTable.plannedDateTo,
+  })
     .from(monthlyPmPlanRowsTable)
     .innerJoin(monthlyPmPlansTable, eq(monthlyPmPlanRowsTable.planId, monthlyPmPlansTable.id))
     .where(and(
@@ -235,7 +234,12 @@ async function completeScheduledMonthlyPm(machineId: number, inspectionDate: str
       eq(monthlyPmPlanRowsTable.actualDateIsOverride, false),
       eq(monthlyPmPlanRowsTable.isManuallyRemoved, false),
     ));
-  if (!scheduledRows.length) return;
+  const matchingRows = scheduledRows.filter((row) => {
+    const from = row.plannedDateFrom ?? `${match[1]}-${match[2]}-01`;
+    const to = row.plannedDateTo ?? row.plannedDateFrom ?? `${match[1]}-${match[2]}-31`;
+    return inspectionDate >= from && inspectionDate <= to;
+  });
+  if (!matchingRows.length) return;
   await db
     .update(monthlyPmPlanRowsTable)
     .set({
@@ -246,9 +250,57 @@ async function completeScheduledMonthlyPm(machineId: number, inspectionDate: str
     })
     .where(
       and(
-        inArray(monthlyPmPlanRowsTable.id, scheduledRows.map((row) => row.id)),
+        inArray(monthlyPmPlanRowsTable.id, matchingRows.map((row) => row.id)),
       ),
     );
+}
+
+// Keep automatically managed monthly-plan rows in sync when an inspection is
+// removed. Another inspection must be inside each row's planned period.
+async function reconcileScheduledMonthlyPmAfterDeletion(machineId: number, inspectionDate: string) {
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(inspectionDate);
+  if (!match) return;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const scheduledRows = await db.select({
+    id: monthlyPmPlanRowsTable.id,
+    plannedDateFrom: monthlyPmPlanRowsTable.plannedDateFrom,
+    plannedDateTo: monthlyPmPlanRowsTable.plannedDateTo,
+  })
+    .from(monthlyPmPlanRowsTable)
+    .innerJoin(monthlyPmPlansTable, eq(monthlyPmPlanRowsTable.planId, monthlyPmPlansTable.id))
+    .where(and(
+      eq(monthlyPmPlanRowsTable.machineId, machineId),
+      eq(monthlyPmPlansTable.year, year),
+      eq(monthlyPmPlansTable.month, month),
+      eq(monthlyPmPlanRowsTable.actualDateIsOverride, false),
+      eq(monthlyPmPlanRowsTable.isManuallyRemoved, false),
+    ));
+  for (const row of scheduledRows) {
+    const from = row.plannedDateFrom ?? `${match[1]}-${match[2]}-01`;
+    const to = row.plannedDateTo ?? row.plannedDateFrom ?? `${match[1]}-${match[2]}-31`;
+    const [remainingInspection] = await db.select({ inspectionDate: pmInspectionsTable.inspectionDate })
+      .from(pmInspectionsTable)
+      .where(and(
+        eq(pmInspectionsTable.machineId, machineId),
+        gte(pmInspectionsTable.inspectionDate, from),
+        lte(pmInspectionsTable.inspectionDate, to),
+      ))
+      .orderBy(desc(pmInspectionsTable.inspectionDate), desc(pmInspectionsTable.id))
+      .limit(1);
+
+    await db.update(monthlyPmPlanRowsTable).set(remainingInspection ? {
+      actualDate: remainingInspection.inspectionDate,
+      actualDateIsOverride: false,
+      status: "completed",
+      updatedAt: new Date(),
+    } : {
+      actualDate: null,
+      actualDateIsOverride: false,
+      status: "due",
+      updatedAt: new Date(),
+    }).where(eq(monthlyPmPlanRowsTable.id, row.id));
+  }
 }
 
 async function recordDetail(machineId: number, record = undefined as typeof pmRecordsTable.$inferSelect | undefined) {
@@ -325,7 +377,7 @@ router.get("/header", requireAuth, requirePermission("view_machines"), async (re
   }
 });
 
-router.put("/header", requireAuth, requirePermission("edit_header"), async (req, res, next) => {
+router.put("/header", requireAuth, requirePermission("edit_header_preventive_maintenance"), async (req, res, next) => {
   try {
     const machineId = parseIdParam(req.params.id);
     if (Number.isNaN(machineId) || !(await machineExists(machineId))) {
@@ -354,6 +406,11 @@ router.put("/header", requireAuth, requirePermission("edit_header"), async (req,
       })
       .where(eq(pmHeadersTable.machineId, machineId))
       .returning();
+    await db.update(pmHeadersTable).set({
+      procedureFormNumber: body.procedureFormNumber || "LOG-00-0102",
+      effectiveDate: body.effectiveDate ?? null,
+      updatedAt: new Date(),
+    }).where(sql`${pmHeadersTable.machineId} IN (SELECT id FROM machines WHERE deleted_at IS NULL) AND ${pmHeadersTable.machineId} <> ${machineId}`);
     res.json(formatHeader(updated!));
   } catch (err) {
     next(err);
@@ -387,7 +444,7 @@ router.post("/checklist", requireAuth, requirePermission("manage_pm_checklist"),
       return;
     }
     await rolloverCompletedRecord(machineId);
-    const sortOrder = await normalizeChecklistOrder(machineId);
+    const sortOrder = await nextChecklistOrder(machineId);
     const [created] = await db
       .insert(pmChecklistPointsTable)
       .values({
@@ -408,22 +465,30 @@ router.put("/checklist/:pointId", requireAuth, requirePermission("manage_pm_chec
     const machineId = parseIdParam(req.params.id);
     const pointId = parseIdParam(req.params.pointId);
     const body = req.body as { pointText?: string; resultType?: string; sortOrder?: number };
+    const pointText = body.pointText?.trim();
+    if (!pointText) {
+      res.status(400).json({ error: "pointText is required" });
+      return;
+    }
     await rolloverCompletedRecord(machineId);
     const [updated] = await db
       .update(pmChecklistPointsTable)
       .set({
-        pointText: body.pointText ?? "",
+        pointText,
         resultType: body.resultType ?? "yes_no",
-        sortOrder: body.sortOrder ?? 0,
+        sortOrder: body.sortOrder === undefined ? undefined : Math.max(1, Math.trunc(body.sortOrder)),
         updatedAt: new Date(),
       })
-      .where(and(eq(pmChecklistPointsTable.id, pointId), eq(pmChecklistPointsTable.machineId, machineId)))
+      .where(and(
+        eq(pmChecklistPointsTable.id, pointId),
+        eq(pmChecklistPointsTable.machineId, machineId),
+        eq(pmChecklistPointsTable.isActive, true),
+      ))
       .returning();
     if (!updated) {
       res.status(404).json({ error: "Checklist point not found" });
       return;
     }
-    await normalizeChecklistOrder(machineId);
     res.json(formatPoint(updated));
   } catch (err) {
     next(err);
@@ -444,7 +509,6 @@ router.patch("/checklist/:pointId", requireAuth, requirePermission("manage_pm_ch
       res.status(404).json({ error: "Checklist point not found" });
       return;
     }
-    await normalizeChecklistOrder(machineId);
     res.json(formatPoint(updated));
   } catch (err) {
     next(err);
@@ -623,6 +687,8 @@ router.put("/inspections/:inspectionId", requireAuth, requirePermission("edit_pm
       entityId: machineId,
       details: { inspectionId, inspectionDate: body.inspectionDate, inspectionTime: body.inspectionTime, recordId: inspection.pm_inspections.recordId },
     });
+    await reconcileScheduledMonthlyPmAfterDeletion(machineId, inspection.pm_inspections.inspectionDate);
+    await completeScheduledMonthlyPm(machineId, body.inspectionDate);
     res.json(await recordDetail(machineId));
   } catch (err) {
     next(err);
@@ -656,6 +722,7 @@ router.delete("/inspections/:inspectionId", requireAuth, requirePermission("dele
       }
       await tx.update(pmRecordsTable).set({ updatedAt: new Date() }).where(eq(pmRecordsTable.id, inspection.pm_inspections.recordId));
     });
+    await reconcileScheduledMonthlyPmAfterDeletion(machineId, inspection.pm_inspections.inspectionDate);
     res.json(await recordDetail(machineId));
   } catch (err) {
     next(err);

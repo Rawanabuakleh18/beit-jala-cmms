@@ -57,6 +57,7 @@ import { useLang } from "@/contexts/LanguageContext";
 
 // Base schema for both create and edit
 const baseUserSchema = z.object({
+  username: z.string().trim().min(2, "Username must be at least 2 characters"),
   employeeNumber: z.string().min(1, "Employee number is required"),
   fullName: z.string().optional(),
   roleId: z.coerce.number().min(1, "Role is required"),
@@ -65,12 +66,23 @@ const baseUserSchema = z.object({
 
 // Create requires username and password
 const createUserSchema = baseUserSchema.extend({
-  username: z.string().min(2, "Username must be at least 2 characters"),
   password: z.string().min(4, "Password must be at least 4 characters"),
 });
 
-// Edit has optional password and username is fixed
-const editUserSchema = baseUserSchema.extend({
+// Existing profile values are already stored. Editing one field must not force
+// an administrator to re-enter unrelated account settings.
+const editUserSchema = z.object({
+  username: z.string().trim().min(2, "Username must be at least 2 characters").optional(),
+  employeeNumber: z.string().optional(),
+  fullName: z.string().optional(),
+  roleId: z.preprocess(
+    (value) => value === "" || value == null ? undefined : Number(value),
+    z.number().min(1, "Role is required").optional(),
+  ),
+  departmentId: z.preprocess(
+    (value) => value === "" || value == null ? null : Number(value),
+    z.number().nullable().optional(),
+  ),
   password: z.string().min(4, "Password must be at least 4 characters").optional().or(z.literal("")),
 });
 
@@ -117,10 +129,11 @@ export default function UserForm({ params }: { params?: { id: string } }) {
   const form = useForm<any>({
     resolver: zodResolver(formSchema),
     defaultValues: isEditing ? {
+      username: "",
       fullName: "",
       employeeNumber: "",
       roleId: "",
-      departmentId: null,
+      departmentId: undefined,
       password: "",
     } : {
       username: "",
@@ -135,6 +148,7 @@ export default function UserForm({ params }: { params?: { id: string } }) {
   useEffect(() => {
     if (isEditing && userData) {
       form.reset({
+        username: userData.username,
         fullName: userData.fullName || "",
         employeeNumber: userData.employeeNumber || "",
         roleId: userData.roleId,
@@ -147,11 +161,17 @@ export default function UserForm({ params }: { params?: { id: string } }) {
   }, [isEditing, userData, form]);
 
   const onSubmit = (values: any) => {
-    // Clean up payload
-    const payload = {
-      ...values,
-      departmentId: values.departmentId || null,
-    };
+    // On edit, send only values that were actually changed. The API then keeps
+    // the saved role, department, password, and other untouched profile data.
+    const payload: Record<string, unknown> = isEditing
+      ? Object.fromEntries(
+          Object.keys(form.formState.dirtyFields).map((key) => [key, values[key]]),
+        )
+      : { ...values };
+
+    if ("departmentId" in payload) {
+      payload.departmentId = payload.departmentId || null;
+    }
     if (payload.password === "") delete payload.password;
 
     if (isEditing && userId) {
@@ -161,6 +181,14 @@ export default function UserForm({ params }: { params?: { id: string } }) {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["users"] });
             queryClient.invalidateQueries({ queryKey: getGetUserQueryKey(userId) });
+            // Keep every value currently displayed in the form. Some generated
+            // update responses omit joined profile fields such as roleId and
+            // departmentId, so resetting from that response would blank them.
+            const currentValues = form.getValues();
+            form.reset({
+              ...currentValues,
+              password: "",
+            });
             toast({
               title: "User updated",
               description: `Successfully updated user details.`,
@@ -178,7 +206,7 @@ export default function UserForm({ params }: { params?: { id: string } }) {
       );
     } else {
       createMutation.mutate(
-        { data: payload },
+        { data: payload as CreateUserValues },
         {
           onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -258,7 +286,9 @@ export default function UserForm({ params }: { params?: { id: string } }) {
         queryClient.invalidateQueries({ queryKey: ["signatures"] }),
         queryClient.invalidateQueries({ queryKey: ["signature-profile"] }),
       ]);
-      toast({ title: "Signature saved", description: "The user's saved signature was updated everywhere." });
+      toast(signatureData
+        ? { title: "Signature saved", description: "The user's saved signature was updated everywhere." }
+        : { title: "Signature deleted", description: "The saved signature was removed from the account." });
     },
     onError: (error) => toast({ variant: "destructive", title: "Signature failed", description: getErrorMessage(error, "Unable to save signature.") }),
   });
@@ -347,7 +377,13 @@ export default function UserForm({ params }: { params?: { id: string } }) {
     manage_spare_parts: "إدارة قطع الغيار",
     record_spare_part_usage: "تسجيل استخدام قطع الغيار",
     adjust_spare_parts: "تسوية كميات قطع الغيار",
-    edit_header: "تعديل رؤوس النماذج",
+    edit_header_equipment_information: "تعديل هيدر سجل معلومات المعدات",
+    edit_header_preventive_maintenance: "تعديل هيدر سجل الصيانة الوقائية",
+    edit_header_corrective_maintenance: "تعديل هيدر سجل الصيانة العلاجية",
+    edit_header_closed_corrective_log: "تعديل هيدر سجل طلبات الصيانة العلاجية المغلقة",
+    edit_header_annual_plan: "تعديل هيدر خطة الصيانة السنوية",
+    edit_header_monthly_plan: "تعديل هيدر خطة الصيانة الشهرية",
+    edit_header_maintenance_request: "تعديل هيدر طلب / تقرير الصيانة العلاجية",
     print_forms: "طباعة النماذج",
     manage_signatures: "إدارة التوقيعات",
     edit_corrective_maintenance: "تعديل صفوف سجل الصيانة العلاجية",
@@ -431,28 +467,26 @@ export default function UserForm({ params }: { params?: { id: string } }) {
       <div className="grid gap-8 lg:grid-cols-3">
         <div className={isEditing ? "lg:col-span-1" : "lg:col-span-2 lg:col-start-1"}>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} autoComplete="off" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle>{tr("Profile Details", "بيانات الحساب")}</CardTitle>
                   <CardDescription>{tr("Identity and contact information", "بيانات الهوية والتواصل")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {!isEditing && (
-                    <FormField
-                      control={form.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{tr("Username", "اسم المستخدم")} <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input placeholder="jsmith" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{tr("Username", "اسم المستخدم")} <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input placeholder="jsmith" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}
@@ -461,7 +495,7 @@ export default function UserForm({ params }: { params?: { id: string } }) {
                       <FormItem>
                         <FormLabel>{tr("Full Name", "الاسم الكامل")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Smith" {...field} />
+                          <Input placeholder="John Smith" autoComplete="off" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -472,7 +506,7 @@ export default function UserForm({ params }: { params?: { id: string } }) {
                     <FormItem><FormLabel>{tr("Employee Number", "رقم الموظف")} <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="EMP-0001" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
 
-                  {isEditing && <div className="space-y-3 rounded-md border p-3"><p className="text-sm font-medium leading-none">{tr("Saved drawn signature", "التوقيع المحفوظ")}</p><SignaturePad value={signatureData} onChange={setSignatureData} /><Button type="button" variant="outline" onClick={() => signatureMutation.mutate()} disabled={!signatureData || signatureMutation.isPending}>{tr("Save / Replace Signature", "حفظ / استبدال التوقيع")}</Button></div>}
+                  {isEditing && <div className="space-y-3 rounded-md border p-3"><p className="text-sm font-medium leading-none">{tr("Saved drawn signature", "التوقيع المحفوظ")}</p><SignaturePad value={signatureData} onChange={setSignatureData} /><Button type="button" variant="outline" onClick={() => signatureMutation.mutate()} disabled={signatureMutation.isPending}>{tr("Save / Replace Signature", "حفظ / استبدال التوقيع")}</Button></div>}
 
                   <FormField
                     control={form.control}
@@ -482,7 +516,7 @@ export default function UserForm({ params }: { params?: { id: string } }) {
                         <FormLabel>{tr("Primary Role", "الدور الأساسي")} <span className="text-destructive">*</span></FormLabel>
                         <Select
                           onValueChange={(val) => field.onChange(parseInt(val, 10))}
-                          value={field.value?.toString()}
+                          value={(field.value || userData?.roleId)?.toString()}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -510,7 +544,7 @@ export default function UserForm({ params }: { params?: { id: string } }) {
                         <FormLabel>{tr("Department", "القسم")}</FormLabel>
                         <Select
                           onValueChange={(val) => field.onChange(val === "none" ? null : parseInt(val, 10))}
-                          value={field.value?.toString() || "none"}
+                          value={(field.value === undefined ? userData?.departmentId : field.value)?.toString() || "none"}
                         >
                           <FormControl>
                             <SelectTrigger>

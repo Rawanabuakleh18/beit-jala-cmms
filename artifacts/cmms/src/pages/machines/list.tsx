@@ -19,6 +19,7 @@ import {
 import { Search, Plus, Server, AlertCircle, Archive, List, Trash2 } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 export default function MachinesList() {
   const { t, i18n } = useTranslation();
@@ -28,6 +29,7 @@ export default function MachinesList() {
   const debouncedSearch = useDebounce(searchTerm, 300);
   const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   const machineParams = debouncedSearch || showArchived
     ? { ...(debouncedSearch ? { search: debouncedSearch } : {}), ...(showArchived ? { archived: true } : {}) }
@@ -40,7 +42,15 @@ export default function MachinesList() {
   });
   const permanentDelete = useMutation({
     mutationFn: (id: number) => apiRequest(`/machines/${id}/permanent`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetMachinesQueryKey(machineParams) }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/machines"] });
+      toast({ title: isArabic ? "تم حذف الماكينة نهائياً" : "Machine permanently deleted" });
+    },
+    onError: (error) => toast({
+      variant: "destructive",
+      title: isArabic ? "تعذر حذف الماكينة" : "Could not delete machine",
+      description: error instanceof Error ? error.message : (isArabic ? "حدث خطأ غير متوقع" : "Unexpected error"),
+    }),
   });
 
   const getStatusBadge = (status: string) => {

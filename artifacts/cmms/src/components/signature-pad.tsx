@@ -39,21 +39,27 @@ export function SignaturePad({ value, onChange }: { value?: string | null; onCha
       source.height = Math.max(1, Math.round(image.naturalHeight * scale));
       const sourceContext = source.getContext("2d", { willReadFrequently: true });
       if (!sourceContext) return;
+      sourceContext.imageSmoothingEnabled = true;
+      sourceContext.imageSmoothingQuality = "high";
       sourceContext.drawImage(image, 0, 0, source.width, source.height);
       const pixels = sourceContext.getImageData(0, 0, source.width, source.height);
-      let borderBrightnessTotal = 0; let borderBrightnessCount = 0;
+      let borderRedTotal = 0; let borderGreenTotal = 0; let borderBlueTotal = 0; let borderBrightnessCount = 0;
       const borderSize = Math.max(2, Math.round(Math.min(source.width, source.height) * 0.03));
       for (let y = 0; y < source.height; y += 1) {
         for (let x = 0; x < source.width; x += 1) {
           if (x >= borderSize && x < source.width - borderSize && y >= borderSize && y < source.height - borderSize) continue;
           const index = (y * source.width + x) * 4;
           if (pixels.data[index + 3] <= 20) continue;
-          borderBrightnessTotal += (pixels.data[index] + pixels.data[index + 1] + pixels.data[index + 2]) / 3;
+          borderRedTotal += pixels.data[index];
+          borderGreenTotal += pixels.data[index + 1];
+          borderBlueTotal += pixels.data[index + 2];
           borderBrightnessCount += 1;
         }
       }
-      const borderBrightness = borderBrightnessCount ? borderBrightnessTotal / borderBrightnessCount : 255;
-      const inkThreshold = Math.max(60, Math.min(220, borderBrightness - 40));
+      const paperRed = borderBrightnessCount ? borderRedTotal / borderBrightnessCount : 255;
+      const paperGreen = borderBrightnessCount ? borderGreenTotal / borderBrightnessCount : 255;
+      const paperBlue = borderBrightnessCount ? borderBlueTotal / borderBrightnessCount : 255;
+      const borderBrightness = (paperRed + paperGreen + paperBlue) / 3;
       let darkPixels = 0; let darkLeft = source.width; let darkTop = source.height; let darkRight = -1; let darkBottom = -1;
       for (let index = 0; index < pixels.data.length; index += 4) {
         const brightness = (pixels.data[index] + pixels.data[index + 1] + pixels.data[index + 2]) / 3;
@@ -77,14 +83,23 @@ export function SignaturePad({ value, onChange }: { value?: string | null; onCha
         const brightness = (pixels.data[index] + pixels.data[index + 1] + pixels.data[index + 2]) / 3;
         const x = (index / 4) % source.width;
         const y = Math.floor(index / 4 / source.width);
+        const redDifference = pixels.data[index] - paperRed;
+        const greenDifference = pixels.data[index + 1] - paperGreen;
+        const blueDifference = pixels.data[index + 2] - paperBlue;
+        const colourDistance = Math.sqrt(redDifference ** 2 + greenDifference ** 2 + blueDifference ** 2);
+        // Colour distance retains blue-pen signatures, while brightness
+        // contrast retains black ink. A proportional alpha preserves the
+        // anti-aliased edge pixels instead of turning uploaded strokes jagged.
+        const inkStrength = Math.max(borderBrightness - brightness, colourDistance * 0.72);
         const visibleInk = hasDarkBackground
           ? x >= darkLeft && x <= darkRight && y >= darkTop && y <= darkBottom && pixels.data[index + 3] > 20 && brightness > 80
-          // Scanned paper may be white, cream, or light grey. Compare each
-          // pixel to the sampled paper colour around the image edge.
-          : pixels.data[index + 3] > 20 && brightness < inkThreshold;
+          : pixels.data[index + 3] > 20 && inkStrength > 16;
         if (!visibleInk) { pixels.data[index + 3] = 0; continue; }
         // Preserve a strong, legible signature stroke after removing the scan background.
         pixels.data[index] = 15; pixels.data[index + 1] = 23; pixels.data[index + 2] = 42;
+        pixels.data[index + 3] = hasDarkBackground
+          ? Math.max(48, Math.min(255, Math.round((brightness - 70) * 2.2)))
+          : Math.max(36, Math.min(255, Math.round((inkStrength - 10) * 4.5)));
         left = Math.min(left, x); top = Math.min(top, y); right = Math.max(right, x); bottom = Math.max(bottom, y);
       }
       if (right < left || bottom < top) { setUploadError("لم يتم العثور على توقيع واضح في الصورة."); return; }
@@ -96,6 +111,8 @@ export function SignaturePad({ value, onChange }: { value?: string | null; onCha
       const targetContext = target?.getContext("2d");
       if (!target || !targetContext) return;
       targetContext.clearRect(0, 0, target.width, target.height);
+      targetContext.imageSmoothingEnabled = true;
+      targetContext.imageSmoothingQuality = "high";
       const displayScale = Math.min((target.width - padding * 2) / cropWidth, (target.height - padding * 2) / cropHeight);
       const drawWidth = cropWidth * displayScale;
       const drawHeight = cropHeight * displayScale;

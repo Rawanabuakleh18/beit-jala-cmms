@@ -51,6 +51,7 @@ const equipmentInfoSchema = z.object({
   dimensionWidthCm: z.coerce.number().optional().nullable(),
   dimensionHeightCm: z.coerce.number().optional().nullable(),
   dimensionDepthCm: z.coerce.number().optional().nullable(),
+  dimensionsNote: z.string().optional(),
   weightKg: z.coerce.number().optional().nullable(),
   
   utilitiesPowerSupply: z.string().optional(),
@@ -78,7 +79,7 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
   const queryClient = useQueryClient();
 
   const canEdit = hasPermission("edit_equipment_information");
-  const canEditHeader = hasPermission("edit_header");
+  const canEditHeader = hasPermission("edit_header_equipment_information");
   const [headerForm, setHeaderForm] = useState<EquipmentHeader | null>(null);
 
   const { data: machine, isLoading: isLoadingMachine } = useGetMachine(machineId, {
@@ -86,13 +87,26 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
   });
 
   const { data: equipInfo, isLoading: isLoadingInfo } = useGetEquipmentInformation(machineId, {
-    query: { enabled: !!machineId, queryKey: getGetEquipmentInformationQueryKey(machineId) }
+    // A new machine legitimately has no equipment-information row yet. The API
+    // returns 404 in that case; retrying it several times only delays the empty
+    // form from opening.
+    query: {
+      enabled: !!machineId,
+      queryKey: getGetEquipmentInformationQueryKey(machineId),
+      retry: false,
+    }
   });
-  const { data: equipmentHeader } = useQuery({ queryKey: ["equipment-header"], queryFn: () => apiRequest<EquipmentHeader>(`/machines/${machineId}/equipment-information/header`) });
+  const equipmentHeaderQueryKey = ["equipment-header", machineId] as const;
+  const { data: equipmentHeader } = useQuery({
+    queryKey: equipmentHeaderQueryKey,
+    queryFn: () => apiRequest<EquipmentHeader>(`/machines/${machineId}/equipment-information/header`),
+    enabled: !!machineId,
+    staleTime: 5 * 60 * 1000,
+  });
   useEffect(() => { if (equipmentHeader) setHeaderForm(equipmentHeader); }, [equipmentHeader]);
   const saveHeader = useMutation({
     mutationFn: () => apiRequest<EquipmentHeader>(`/machines/${machineId}/equipment-information/header`, { method: "PUT", body: JSON.stringify(headerForm) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["equipment-header"] }); toast({ title: "Header Saved", description: "The header was updated for all equipment information records." }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: equipmentHeaderQueryKey }); toast({ title: "Header Saved", description: "The header was updated for all equipment information records." }); },
     onError: (error) => toast({ variant: "destructive", title: "Header save failed", description: getErrorMessage(error, "Could not save header.") }),
   });
 
@@ -110,7 +124,7 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
         modelNumber: equipInfo.modelNumber || "",
         serialNumber: equipInfo.serialNumber || "",
         identificationNumber: equipInfo.identificationNumber || machine?.machineNumber || "",
-        datePurchased: equipInfo.datePurchased ? equipInfo.datePurchased.split('T')[0] : "",
+        datePurchased: equipInfo.datePurchased || "",
         
         purchasedFromName: equipInfo.purchasedFromName || "",
         purchasedFromAddress: equipInfo.purchasedFromAddress || "",
@@ -121,6 +135,7 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
         dimensionWidthCm: equipInfo.dimensionWidthCm,
         dimensionHeightCm: equipInfo.dimensionHeightCm,
         dimensionDepthCm: equipInfo.dimensionDepthCm,
+        dimensionsNote: equipInfo.dimensionsNote || "",
         weightKg: equipInfo.weightKg,
         
         utilitiesPowerSupply: equipInfo.utilitiesPowerSupply || "",
@@ -252,9 +267,9 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
           <div className="mb-8 rounded-md border bg-muted/30 p-4 print:hidden">
             <div className="mb-3 flex items-center gap-2 font-semibold"><Settings2 className="h-4 w-4" /> Edit Header</div>
             <div className="grid gap-3 md:grid-cols-2">
-              <Input value={headerForm.companyName} onChange={(e) => setHeaderForm({ ...headerForm, companyName: e.target.value })} placeholder="Company name" />
-              <Input value={headerForm.documentName} onChange={(e) => setHeaderForm({ ...headerForm, documentName: e.target.value })} placeholder="Document name" />
-              <Input value={headerForm.documentNumber} onChange={(e) => setHeaderForm({ ...headerForm, documentNumber: e.target.value })} placeholder="Document number" />
+              <Textarea rows={2} value={headerForm.companyName} onChange={(e) => setHeaderForm({ ...headerForm, companyName: e.target.value })} placeholder="Company name" />
+              <Textarea rows={2} value={headerForm.documentName} onChange={(e) => setHeaderForm({ ...headerForm, documentName: e.target.value })} placeholder="Document name" />
+              <Textarea rows={2} value={headerForm.documentNumber} onChange={(e) => setHeaderForm({ ...headerForm, documentNumber: e.target.value })} placeholder="Document number" />
               <Input type="date" value={headerForm.effectiveOrExecutionDate ?? ""} onChange={(e) => setHeaderForm({ ...headerForm, effectiveOrExecutionDate: e.target.value || null })} />
               <Input value={`Page ${headerForm.pageNumber} of ${headerForm.totalPages}`} readOnly />
             </div>
@@ -276,31 +291,31 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                 <FormField control={form.control} name="nameOfEquipment" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Name of Equipment</FormLabel>
-                    <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="identificationNumber" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Identification Number</FormLabel>
-                    <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="modelNumber" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Model Number</FormLabel>
-                    <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="serialNumber" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Serial Number</FormLabel>
-                    <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="datePurchased" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Date Purchased</FormLabel>
-                    <FormControl><Input type="date" {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea rows={2} placeholder="e.g. 2021 or 2021-04-01" {...field} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
               </div>
@@ -347,7 +362,7 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
             {/* 4. Physical */}
             <section>
               <h4 className="font-bold uppercase tracking-wider mb-4 border-b border-muted-foreground pb-1 text-sm text-primary">4. Physical Characteristics</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-x-8 gap-y-4">
                 <FormField control={form.control} name="dimensionWidthCm" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Width (cm)</FormLabel>
@@ -366,6 +381,12 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                     <FormControl><Input type="number" {...field} value={field.value || ""} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
+                <FormField control={form.control} name="dimensionsNote" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Dimensions Note</FormLabel>
+                    <FormControl><Textarea rows={2} placeholder="e.g. As layout" {...field} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                  </FormItem>
+                )} />
                 <FormField control={form.control} name="weightKg" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Weight (kg)</FormLabel>
@@ -382,25 +403,25 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                 <FormField control={form.control} name="utilitiesPowerSupply" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Power Supply (V/Hz/Ph/A/kW)</FormLabel>
-                    <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="utilitiesAir" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Compressed Air (Bar/CFM)</FormLabel>
-                    <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="utilitiesWater" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Water (Type/Pressure/Temp)</FormLabel>
-                    <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="utilitiesOther" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Other Utilities (Steam/Gas/etc.)</FormLabel>
-                    <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
               </div>
@@ -448,7 +469,7 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                   <FormField control={form.control} name="preparedByName" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="font-semibold">Prepared By Name</FormLabel>
-                      <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                      <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="preparedByDate" render={({ field }) => (
@@ -468,7 +489,7 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                   <FormField control={form.control} name="approvedByName" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="font-semibold">Approved By Name</FormLabel>
-                      <FormControl><Input {...field} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                      <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="approvedByDate" render={({ field }) => (
