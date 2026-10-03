@@ -336,7 +336,7 @@ main:has([data-permissions-page='true']) > div:last-child {
   background: white;
   padding: 18mm;
   font-family: "Times New Roman", serif;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.25;
   color: black;
   box-shadow: 0 10px 35px rgba(15, 23, 42, 0.18);
@@ -440,8 +440,46 @@ main:has([data-permissions-page='true']) > div:last-child {
   line-height: 1.35;
 }
 
-.official-print-header-table.monthly-pm-print-header td:nth-child(2) {
-  font-size: 15px;
+.official-print-header-table.monthly-pm-print-header td.monthly-pm-title-cell {
+  font-size: 18px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.monthly-pm-print-content {
+  width: 240mm;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+/* Keep the complete monthly form (document header, month line, and schedule)
+   centred as one unit.  Every generated sheet starts from the same inset so
+   continuation-page headers stay level with the first page. */
+.official-print-page.monthly-pm-print-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.monthly-pm-print-page .monthly-pm-print-content {
+  position: absolute;
+  top: 18mm;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.monthly-pm-print-page .monthly-pm-print-header,
+.monthly-pm-print-page .monthly-pm-print-table {
+  width: 100%;
+}
+
+.monthly-pm-month-line {
+  margin-block: 3mm;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .monthly-pm-document-line {
@@ -450,6 +488,7 @@ main:has([data-permissions-page='true']) > div:last-child {
   min-height: 24px;
   padding: 1px 8px;
   border-bottom: 1px solid #000;
+  white-space: nowrap;
 }
 
 .monthly-pm-document-line-last {
@@ -461,6 +500,7 @@ main:has([data-permissions-page='true']) > div:last-child {
   border-collapse: collapse !important;
   border-spacing: 0 !important;
   border: 0 !important;
+  height: auto !important;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -486,13 +526,27 @@ main:has([data-permissions-page='true']) > div:last-child {
    The number of plan rows is supplied by the page, so a short plan remains
    legible and a larger one continues without losing any machine rows. */
 .official-print-table.monthly-pm-print-table tbody tr {
-  height: max(5.5mm, calc(108mm / var(--monthly-row-count, 12)));
+  height: 6.7mm;
 }
 
 .official-print-table.monthly-pm-print-table tbody td {
   padding: 1mm 1.5mm;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.official-print-table.monthly-pm-print-table tbody td:nth-child(5),
+.official-print-table.monthly-pm-print-table tbody td:nth-child(6),
+.official-print-table.monthly-pm-print-table tbody td:nth-child(7) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.monthly-pm-machine-name,
+.monthly-pm-machine-number {
+  display: block;
+  line-height: 1.15;
 }
 
 .monthly-pm-print-signature {
@@ -503,6 +557,51 @@ main:has([data-permissions-page='true']) > div:last-child {
   object-fit: contain;
   object-position: center bottom;
   vertical-align: middle;
+}
+
+.monthly-pm-signatures {
+  width: 225mm;
+  max-width: 100%;
+  margin: 5mm auto 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@media print {
+  .official-print-page.official-print-landscape.monthly-pm-print-page {
+    width: 297mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    margin: 0 !important;
+    padding: 12mm 18mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .monthly-pm-print-page .monthly-pm-print-content {
+    position: absolute !important;
+    top: 18mm !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 240mm !important;
+    max-width: 240mm !important;
+    margin-inline: auto !important;
+  }
+
+  .monthly-pm-print-page .monthly-pm-signatures {
+    width: 225mm !important;
+    max-width: 225mm !important;
+    margin-inline: auto !important;
+  }
+
+  .official-print-page.official-print-landscape.monthly-pm-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
 }
 
 /* FORM-10-0975 is an Arabic, right-to-left form.  The header table keeps its
@@ -1626,14 +1725,66 @@ main:has([data-permissions-page='true']) > div:last-child {
 
 /* FORM-10-0118: centre the labels in the left column, except the two
    multi-line company fields which follow the original left-aligned form. */
-.equipment-information-print-content .official-print-table:not(.equipment-information-header) td:first-child {
+.equipment-information-print-content .official-print-table:not(.equipment-information-header) td:first-child:not(.equipment-section-cell) {
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
+}
+
+/* Excel-style data alignment used throughout FORM-10-0118: start at the
+   left edge and centre the content vertically inside each ruled cell. */
+.equipment-information-form-grid .official-print-table td {
+  text-align: left;
+  vertical-align: middle;
 }
 
 .equipment-information-print-content .equipment-information-multiline-label td:first-child {
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
+}
+
+.equipment-information-identification-lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  column-gap: 8px;
+  white-space: normal;
+  align-items: baseline;
+}
+
+.equipment-information-identification-line {
+  display: contents;
+}
+
+.equipment-information-weight-lines {
+  padding-right: 10mm;
+}
+
+.equipment-information-identification-line bdi {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.equipment-information-identification-full {
+  grid-column: 1 / -1;
+  white-space: pre-wrap;
+}
+
+.equipment-information-ac1-air-lines {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+
+.equipment-information-ac1-air-lines > span {
+  display: block;
+}
+
+.equipment-information-ac1-air-lines > span:not(:first-child) {
+  padding-left: 5mm;
+  font-weight: 400;
+}
+
+.equipment-information-ac1-air-values > span:not(:first-child) {
+  padding-left: 0;
 }
 
 .equipment-information-company-lines {
@@ -1642,15 +1793,41 @@ main:has([data-permissions-page='true']) > div:last-child {
   gap: 1.5mm;
 }
 
+.equipment-information-kalix-lines {
+  display: grid;
+  gap: 1px;
+  white-space: pre-line;
+}
+
+.equipment-information-kalix-lines > span {
+  display: block;
+  min-height: 1.12em;
+}
+
+.equipment-information-kalix-left-cell {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, 42%);
+  align-items: start;
+  column-gap: 4px;
+  width: 100%;
+}
+
+.equipment-information-kalix-labels {
+  font-weight: 400;
+}
+
 .equipment-information-print-content td.equipment-information-dimensions-value {
   vertical-align: middle;
 }
 
-/* FORM-10-0118: one continuous double outer frame, with a single uniform
-   line for every row and column inside it. */
+/* FORM-10-0118: the original controlled form has two thin, crisp outer
+   rules, separated by a small white gap. */
 .equipment-information-form-grid {
-  border: 3px double #000;
-  font-size: 13px;
+  border: 1px solid #000;
+  outline: 1px solid #222;
+  outline-offset: 1px;
+  margin: 1px;
+  font-size: 15px;
   font-weight: 400;
 }
 
@@ -1666,8 +1843,8 @@ main:has([data-permissions-page='true']) > div:last-child {
 
 .equipment-information-form-grid .official-print-table td {
   border: 0;
-  border-right: 1px solid #000;
-  border-bottom: 1px solid #000;
+  border-right: 1px solid #333;
+  border-bottom: 1px solid #333;
 }
 
 .equipment-information-form-grid .official-print-table td:last-child {
@@ -1692,6 +1869,11 @@ main:has([data-permissions-page='true']) > div:last-child {
 .equipment-information-print-content {
   width: 100%;
   margin-inline: auto;
+}
+
+/* The header and the ruled form are separate blocks on the original sheet. */
+.equipment-information-header + .equipment-information-form-grid {
+  margin-top: 6mm !important;
 }
 
 .equipment-information-approvals > div {
@@ -1736,13 +1918,13 @@ main:has([data-permissions-page='true']) > div:last-child {
   }
 
   .official-print-page.equipment-information-print-page {
-    page-break-after: avoid !important;
-    break-after: avoid-page !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
   .official-print-page:has(.equipment-information-print-content) {
-    page-break-after: avoid !important;
-    break-after: avoid-page !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
   /* FORM-10-0240-1 is an official single-sheet portrait form. */
@@ -1759,23 +1941,95 @@ main:has([data-permissions-page='true']) > div:last-child {
     margin-inline: auto;
   }
 
+}
+
+  /* Use identical form dimensions in preview and print for fit measurement. */
+  .official-print-page.equipment-information-print-page {
+    padding: 12mm;
+  }
+
   .equipment-information-print-content {
     width: 186mm;
     max-width: 100%;
     margin: 5mm auto 0;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.1;
   }
 
-  /* FORM-10-0118 row proportions match the controlled paper form. */
-  .equipment-information-details tr { height: 5.5mm; }
-  .equipment-information-details tr:nth-child(6),
-  .equipment-information-details tr:nth-child(7),
-  .equipment-information-details tr:nth-child(8) { height: 12mm; }
-  .equipment-information-details tr:nth-child(9) { height: 8mm; }
-  .equipment-information-utilities tr { height: 11mm; }
-  .equipment-information-others tr,
-  .equipment-information-safety tr { height: 7mm; }
+  /* Row classes retain their dimensions when moved to a continuation page. */
+  .equipment-row-detail { height: 5.5mm; }
+  .equipment-row-large { height: 12mm; }
+  .equipment-row-weight { height: 8mm; }
+  .equipment-row-utility { height: 11mm; }
+  .equipment-row-extra { height: 7mm; }
+
+  /* CH-4 and CH-5 use a compact, single-sheet Carrier form. */
+  .equipment-information-carrier-chiller-single-page {
+    font-size: 12px;
+    line-height: 1.1;
+  }
+
+  .equipment-information-carrier-chiller-single-page .equipment-information-form-grid {
+    height: auto;
+  }
+
+  .equipment-information-carrier-chiller-single-page .equipment-information-continuous-table {
+    height: auto;
+  }
+
+  .equipment-information-carrier-chiller-single-page .equipment-information-continuous-table td {
+    padding: 3px 6px;
+  }
+
+  /* The two Carrier safety instructions are long prose values. Give them
+     enough ruled-cell height at the normal form font size. */
+  .equipment-information-carrier-chiller-single-page .equipment-row-safety td {
+    height: 15mm;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    line-height: 1.1;
+  }
+
+  /* The utility values are single-line entries; keep their ruled rows compact
+     rather than stretching them to fill spare page height. */
+  .equipment-information-carrier-chiller-single-page .equipment-row-utility td {
+    height: 7mm;
+    padding-top: 1px;
+    padding-bottom: 1px;
+  }
+
+  .equipment-information-form-grid .equipment-information-continuous-table td.equipment-section-cell {
+    height: 6mm;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .equipment-information-continuous-table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .equipment-information-measure {
+    position: absolute;
+    left: -10000px;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+    zoom: 1 !important;
+  }
+
+  @media print {
+    .equipment-information-measure { display: none !important; }
+    .equipment-information-print-page-continued {
+      break-before: page;
+      page-break-before: always;
+    }
+  }
+
+  .equipment-information-continuous-table tr,
+  .equipment-information-approvals {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 
   .equipment-information-form-grid .official-print-section-title {
     min-height: 6mm;
@@ -1799,19 +2053,39 @@ main:has([data-permissions-page='true']) > div:last-child {
     table-layout: fixed;
     width: 100%;
   }
-}
-
 .official-print-pm-header td {
   height: 58px;
   padding: 3px 8px;
-  color: #777 !important;
-  font-size: 11px !important;
+  color: #000 !important;
+  font-size: 15px !important;
   font-weight: 700 !important;
-  line-height: 1.35;
+  line-height: 1.2;
 }
 
 .official-print-pm-header td:nth-child(2) {
-  font-size: 12px !important;
+  font-size: 16px !important;
+}
+
+.official-print-pm-header.official-print-fette-pm-header td {
+  font-size: 14px !important;
+}
+
+.official-print-pm-header.official-print-fette-pm-header td:nth-child(2) {
+  font-size: 15px !important;
+}
+
+.official-print-karnavati-title-line {
+  font-size: inherit;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.official-print-ac6-title-line {
+  font-size: 14px !important;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .official-print-pm-header td:first-child {
@@ -1827,7 +2101,39 @@ main:has([data-permissions-page='true']) > div:last-child {
 }
 
 .official-print-pm-header td:nth-child(3) {
+  text-align: right !important;
+}
+
+/* Make the company identity prominent without increasing the controlled
+   header height or allowing any of its three lines to cross the cell border. */
+.official-print-pm-header td.official-print-pm-company-cell {
+  font-size: 16px !important;
+  line-height: 1.05;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.official-print-pdm05054-pm-header td.official-print-pm-company-cell > div:first-child {
+  font-size: 16px;
+  letter-spacing: -0.35px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.official-print-pdm05054-pm-header td.official-print-pm-company-cell {
   text-align: center !important;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+.official-print-olsa-pm-header td:nth-child(2) {
+  font-size: 17px !important;
+}
+
+.official-print-olsa-pm-table .official-print-pm-closing-label {
+  font-size: 16px !important;
+  font-weight: 400 !important;
 }
 
 .official-print-cm-header td {
@@ -1852,15 +2158,57 @@ main:has([data-permissions-page='true']) > div:last-child {
 
 /* LOG-00-0102-3 is a fixed single-sheet landscape form. */
 .official-print-cm-content {
-  width: 270mm;
+  width: 281mm;
   max-width: 100%;
   margin-inline: auto;
+}
+
+.official-print-page.official-print-landscape:has(.official-print-cm-content) {
+  padding: 8mm;
+}
+
+/* Keep the on-screen corrective-maintenance preview identical to the final
+   print. Previously these readable sizes were applied only inside @media
+   print, which made the first preview look like a reduced miniature. */
+.official-print-layout-landscape .official-print-cm-content {
+  width: 281mm;
+  max-width: 100%;
+  margin: 4mm auto 0;
+  font-size: 14px;
+}
+
+.official-print-layout-landscape .official-print-cm-header {
+  font-size: 16px;
+}
+
+.official-print-layout-landscape .official-print-cm-machine-details {
+  margin-block: 7mm;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 1.5vw, 28px);
+  font-size: 17px;
+}
+
+.official-print-layout-landscape .official-print-cm-machine-details > div {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.official-print-layout-landscape .official-print-cm-log th,
+.official-print-layout-landscape .official-print-cm-log td {
+  padding: 5px 6px;
+}
+
+.official-print-layout-landscape .official-print-cm-log th,
+.official-print-layout-landscape .official-print-cm-log td {
+  font-size: 15px;
 }
 
 .official-print-cm-log,
 .official-print-cm-log th,
 .official-print-cm-log td {
-  border: 2px solid #000 !important;
+  border: 1px solid #000 !important;
 }
 
 .official-print-cm-log tbody tr {
@@ -1875,7 +2223,7 @@ main:has([data-permissions-page='true']) > div:last-child {
 }
 
 .official-print-cm-log td.cm-repair-date.cm-repair-date-final {
-  border-bottom-width: 2px !important;
+  border-bottom-width: 1px !important;
 }
 
 /* FORM-10-1025-0 — annual PM plan. The original form uses the whole A4
@@ -1976,11 +2324,34 @@ main:has([data-permissions-page='true']) > div:last-child {
   width: 100%;
   max-width: 160mm;
   margin-inline: auto;
+  font-size: 12px;
 }
 
 .official-print-pm-table thead tr:nth-child(1) th,
 .official-print-pm-table thead tr:nth-child(2) th {
   height: 24px;
+  vertical-align: middle;
+}
+
+.official-print-pm-table thead tr:nth-child(1) th {
+  height: 30px;
+}
+
+/* Keep every PM table heading readable while preserving the controlled
+   column widths and containing wrapped text within its own ruled cell. */
+.official-print-pm-table thead th {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.official-print-pm-table thead tr:nth-child(1) th,
+.official-print-pm-table thead tr:nth-child(2) th {
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 /* The first two header rows contain the per-inspection schedule and
@@ -2004,6 +2375,77 @@ main:has([data-permissions-page='true']) > div:last-child {
   text-align: center;
 }
 
+/* Keep the inspection-result label on one line, with the Yes/No choice below
+   it even in narrow 8-column forms. */
+.official-print-page.official-print-pm-page[data-centered-pdm118="true"] {
+  min-height: 297mm;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 24mm 12mm 12mm;
+}
+
+.official-print-page[data-centered-pdm118="true"] .official-print-pm-content {
+  margin-block: 0;
+  flex-shrink: 0;
+}
+
+.official-print-page[data-centered-pdm118="true"] .official-print-pm-header {
+  height: 20mm;
+  table-layout: fixed;
+}
+
+.official-print-page[data-centered-pdm118="true"] .official-print-pm-header td {
+  height: 20mm;
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.official-print-page[data-centered-pdm118="true"] .official-print-pm-header td:first-child,
+.official-print-page[data-centered-pdm118="true"] .official-print-pm-header td:nth-child(3) {
+  width: 28% !important;
+}
+
+.official-print-page[data-centered-pdm118="true"] .official-print-pm-header td:nth-child(2) {
+  width: 44% !important;
+  font-size: 15px !important;
+  line-height: 1.25;
+}
+
+.official-print-page[data-centered-pdm118="true"] .official-print-pm-header td:nth-child(3) {
+  text-align: center !important;
+  vertical-align: middle;
+  font-size: 14px !important;
+}
+
+.official-print-page[data-centered-pdm118="true"] .official-print-pm-table {
+  margin-top: 8mm !important;
+}
+
+.official-print-pm-content.official-print-pm-content-wide-portrait {
+  width: 180mm;
+  max-width: none;
+  margin-inline: calc((100% - 180mm) / 2);
+}
+
+.official-print-pm-content-wide-portrait .official-print-pm-table th.official-print-pm-result-heading {
+  padding-inline: 2px;
+}
+
+.official-print-pm-table th.official-print-pm-result-heading > span {
+  display: block;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* Eight inspection columns are narrower: use the same font as Yes/No and
+   split the result wording across its own two lines. */
+.official-print-pm-table th.official-print-pm-result-heading-eight-columns > span {
+  font-size: inherit;
+  line-height: 1.2;
+}
+
 /* Keep the point number and description right-aligned, while centring the
    recorded answers below each inspection column. */
 .official-print-pm-table tbody tr.official-print-row-tall td:nth-child(n + 3) {
@@ -2016,6 +2458,94 @@ main:has([data-permissions-page='true']) > div:last-child {
   text-align: center;
 }
 
+.official-print-pm-table tbody td.official-print-pm-closing-label {
+  font-size: 15px;
+  line-height: 1.2;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+/* PDM-02-049 has enough room in its short checklist for larger activity and
+   closing-row labels; scope this adjustment to that machine only. */
+.official-print-pdm02049-pm-page .official-print-pm-table td.official-print-pm-closing-label {
+  font-size: 17px;
+}
+
+/* Keep the suppositories line together in the PDM-04-047 PM title. */
+.official-print-pdm04047-pm-page .official-print-pm-header td:nth-child(2) > div {
+  white-space: pre;
+  font-size: 14.5px;
+}
+
+/* PDM-06-081 follows its controlled form: a wider title cell and checklist
+   description column while the outer table width stays unchanged. */
+.official-print-pdm06081-pm-page .official-print-pm-header td,
+.official-print-pdm06081-pm-page .official-print-pm-header td:nth-child(2),
+.official-print-pdm06081-pm-page .official-print-pm-header td.official-print-pm-company-cell {
+  font-size: 14.5px !important;
+  line-height: 1.2;
+}
+
+.official-print-pdm06081-pm-page .official-print-pm-header td:first-child {
+  width: 29% !important;
+}
+
+.official-print-pdm06081-pm-page .official-print-pm-header td:nth-child(2) {
+  width: 43% !important;
+}
+
+.official-print-pdm06081-pm-page .official-print-pm-header td:nth-child(3) {
+  width: 28% !important;
+  text-align: center !important;
+}
+
+.official-print-pdm06081-pm-page .official-print-pm-header td:nth-child(2) > div {
+  white-space: pre;
+  font-size: inherit;
+}
+
+.official-print-pdm06081-pm-page .official-print-pm-header td:first-child > div:first-child,
+.official-print-pdm06081-pm-page .official-print-pm-header td.official-print-pm-company-cell > div:first-child {
+  white-space: nowrap;
+}
+
+.official-print-pdm06081-pm-page .official-print-pm-table td.official-print-pm-point-text {
+  font-size: 14.5px;
+  line-height: 1.15;
+}
+
+.official-print-centered-company-pm-page .official-print-pm-header td.official-print-pm-company-cell {
+  text-align: center !important;
+}
+
+.official-print-pdm06083-pm-page .official-print-pm-table td.official-print-pm-closing-label {
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.official-print-pdm06085-pm-page .official-print-pm-header td:nth-child(2) {
+  font-size: 15px !important;
+}
+
+.official-print-pdm06085-pm-page .official-print-pm-header td:nth-child(2) > div > div {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.official-print-pdm06085-pm-page .official-print-pm-header td.official-print-pm-company-cell > div:first-child {
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.official-print-pdm06085-pm-page .pm-machine-service-area-mixer-number {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 8px;
+  padding-right: 8px;
+}
+
 .official-print-pm-table th,
 .official-print-pm-table td {
   text-align: right;
@@ -2025,11 +2555,346 @@ main:has([data-permissions-page='true']) > div:last-child {
    long uninterrupted text (for example a pasted serial/string) inside its
    own cell instead of allowing it to escape across the whole table. */
 .official-print-pm-table td.official-print-pm-point-text {
+  text-align: right;
+  vertical-align: middle;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
+  font-size: 17px;
+}
+
+.official-print-pm-table td.official-print-karnavati-point-text {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+/* AHU continuation sheets omit the checklist heading, leaving more room
+   for slightly larger activity text in both preview and print. */
+.official-print-ahu-pm-page .official-print-pm-table td.official-print-pm-point-text {
+  font-size: 15px;
+}
+
+.official-print-ahu-pm-page .official-print-ac-readable-text .official-print-pm-table td.official-print-pm-point-text {
+  font-size: 16.5px;
+}
+
+.official-print-pm-page.official-print-ahu-pm-page .official-print-ac-readable-text .official-print-pm-table thead tr:nth-child(3) th:nth-child(2) {
+  font-size: 16px;
+}
+
+.official-print-pm-page.official-print-ahu-pm-page .official-print-ac-readable-text .official-print-pm-table thead tr:nth-child(3) th:first-child,
+.official-print-ahu-pm-page .official-print-ac-readable-text .official-print-pm-table tbody tr.official-print-row-tall > td:first-child:not([colspan]) {
+  font-size: 16px;
+}
+
+
+/* Selected production PM forms use the same readable table scale as the AHU
+   forms. Keep wrapping enabled when a record has up to eight inspection
+   columns, so longer activities grow to another line instead of overflowing. */
+.official-print-pdm-large-checklist-page .official-print-pm-table,
+.official-print-pdm-large-checklist-page .official-print-pm-table th,
+.official-print-pdm-large-checklist-page .official-print-pm-table td {
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.official-print-pdm-large-checklist-page .official-print-pm-header,
+.official-print-pdm-large-checklist-page .official-print-pm-table {
+  width: 100%;
+  margin-inline: auto;
+  table-layout: fixed;
+}
+
+/* PDM-01-032 (Huttlin): proportions measured from the controlled Word form.
+   The colgroup supplies the original 5% / 31% / 64% column distribution. */
+.official-print-huttlin-pm-page .official-print-pm-table,
+.official-print-huttlin-pm-page .official-print-pm-table th,
+.official-print-huttlin-pm-page .official-print-pm-table td,
+.official-print-huttlin-pm-page .official-print-pm-table td.official-print-pm-point-text {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.official-print-huttlin-pm-page .official-print-pm-table th,
+.official-print-huttlin-pm-page .official-print-pm-table td {
+  padding-inline: 7px;
+}
+
+/* FBD-Huttlin's landscape PM form has enough header width for a more
+   readable controlled-form heading. */
+.official-print-huttlin-pm-page .official-print-pm-header td {
+  font-size: 15px !important;
+  line-height: 1.3;
+}
+
+.official-print-huttlin-pm-page .official-print-pm-header td:nth-child(2) {
+  font-size: 16px !important;
+}
+
+/* PDM-01-053 requires the same readable PM-record scale without changing
+   any other machine's official form. */
+.official-print-pdm053-pm-page .official-print-pm-table,
+.official-print-pdm053-pm-page .official-print-pm-table th,
+.official-print-pdm053-pm-page .official-print-pm-table td,
+.official-print-pdm056-pm-page .official-print-pm-table,
+.official-print-pdm056-pm-page .official-print-pm-table th,
+.official-print-pdm056-pm-page .official-print-pm-table td {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.official-print-pdm053-pm-page .official-print-pm-header td {
+  font-size: 15px !important;
+}
+
+.official-print-pdm056-pm-page .official-print-pm-header td {
+  font-size: 15px !important;
+}
+
+.official-print-pdm053-pm-page .official-print-pm-header td:nth-child(2) {
+  font-size: 16px !important;
+}
+
+.official-print-pdm056-pm-page .official-print-pm-header td:nth-child(2) {
+  font-size: 16px !important;
+}
+
+/* The controlled Word form uses 18.9pt activity rows. Keep that exact minimum
+   and allow only wrapped text to make a row taller. */
+.official-print-huttlin-pm-page .official-print-pm-table tbody tr.official-print-row-tall > td {
+  height: 25.2px;
+  min-height: 25.2px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
+.official-print-huttlin-pm-page .official-print-pm-table thead tr:nth-child(1) th,
+.official-print-huttlin-pm-page .official-print-pm-table thead tr:nth-child(2) th {
+  height: 25.2px;
+}
+
+.official-print-huttlin-pm-page .official-print-pm-table thead tr:nth-child(3) th {
+  height: 46.3px;
+}
+
+/* Fabtech continuation sheets carry additional inspection points. Keep every
+   complete sheet's checklist at the same top and bottom positions; only the
+   final partial sheet is allowed to end early. */
+.official-print-fabtech-pm-page:not(.official-print-pm-page-final) .official-print-pm-table {
+  height: 150mm;
+}
+
+.official-print-fabtech-pm-page .official-print-pm-content,
+.official-print-fabtech-pm-page .official-print-pm-header,
+.official-print-fabtech-pm-page .official-print-pm-table {
+  margin-inline: auto;
+}
+
+.official-print-layout-landscape .official-print-fabtech-pm-page .official-print-pm-table,
+.official-print-layout-landscape .official-print-fabtech-pm-page .official-print-pm-table th,
+.official-print-layout-landscape .official-print-fabtech-pm-page .official-print-pm-table td,
+.official-print-layout-landscape .official-print-fabtech-pm-page .official-print-pm-table td.official-print-pm-point-text {
+  font-size: 16px;
+}
+
+.official-print-layout-landscape .official-print-fabtech-pm-page .official-print-pm-header td {
+  font-size: 15px !important;
+}
+
+.official-print-layout-landscape .official-print-fabtech-pm-page .official-print-pm-header td:nth-child(2) {
+  font-size: 16px !important;
+}
+
+.official-print-layout-landscape .official-print-fabtech-pm-page .official-print-pm-header td:nth-child(3) {
+  font-size: 17px !important;
+}
+
+.official-print-layout-landscape .official-print-pdm-large-checklist-page:not(.official-print-huttlin-pm-page):not(.official-print-fabtech-pm-page) .official-print-pm-header td {
+  font-size: 16px !important;
+}
+
+.official-print-layout-landscape .official-print-pdm-large-checklist-page:not(.official-print-huttlin-pm-page):not(.official-print-fabtech-pm-page) .official-print-pm-header td:nth-child(2) {
+  font-size: 17px !important;
+}
+
+.official-print-fabtech-pm-page .official-print-pm-table tbody tr.official-print-fabtech-row-compact > td {
+  height: 22px;
+  min-height: 22px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  vertical-align: middle;
+}
+
+.official-print-fabtech-pm-page .official-print-pm-table tbody tr.official-print-fabtech-row-multiline > td {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  vertical-align: middle;
+}
+
+.official-print-fabtech-pm-page.official-print-pm-page-final .official-print-pm-table tbody > tr > td {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  vertical-align: middle;
+}
+
+.official-print-fabtech-pm-page .official-print-pm-table tbody tr.official-print-row-tall > td:first-child,
+.official-print-fabtech-pm-page .official-print-pm-table thead tr:nth-child(3) > th:first-child {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.official-print-fabtech-pm-page .official-print-pm-table tbody tr.official-print-row-tall > td[colspan="2"] {
+  text-align: right !important;
+  font-size: 17px !important;
+}
+
+.official-print-pdm-large-checklist-page .official-print-pm-table td.official-print-pm-point-text {
+  font-size: 15px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
-  line-height: 1.35;
-  font-size: 12.5px;
+}
+
+.official-print-pdm-large-checklist-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"],
+.official-print-pdm-large-checklist-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"] ~ td,
+.official-print-pdm-large-checklist-page .official-print-pm-table tbody tr.official-print-row-xl td {
+  font-size: 15px;
+  min-height: 34px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  vertical-align: middle;
+}
+
+.official-print-ahu-pm-page .pm-machine-service-area {
+  font-size: 16px;
+}
+
+.official-print-chappee-boiler-pm-page .official-print-pm-header td {
+  font-size: 13px !important;
+}
+
+.official-print-chappee-boiler-pm-page .official-print-pm-header td:first-child > div {
+  white-space: nowrap;
+  padding-inline: 4px;
+}
+
+.official-print-pm-page.official-print-chappee-boiler-pm-page .official-print-pm-header td:nth-child(2) {
+  font-size: 14px !important;
+  padding-inline: 3px;
+}
+
+.official-print-chappee-boiler-pm-page .official-print-pm-header td:nth-child(3) {
+  font-size: 13px !important;
+  padding-inline: 3px;
+  text-align: center !important;
+}
+
+.official-print-chappee-boiler-pm-page .official-print-pm-header td:nth-child(3) > div {
+  white-space: nowrap;
+}
+
+.official-print-pm-page.official-print-chappee-boiler-pm-page .official-print-pm-table thead th {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.official-print-pm-page.official-print-chappee-boiler-pm-page .official-print-pm-table tbody td {
+  font-size: 14px;
+  font-weight: 400;
+  vertical-align: middle;
+  padding: 3px 6px;
+  line-height: 1.25;
+}
+
+.official-print-pm-page.official-print-chappee-boiler-pm-page .official-print-pm-table td.official-print-pm-point-text {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.official-print-pm-page.official-print-chappee-boiler-pm-page .official-print-pm-table tbody tr.official-print-row-tall td {
+  min-height: 30px;
+}
+
+.official-print-pm-page.official-print-chappee-boiler-pm-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"],
+.official-print-pm-page.official-print-chappee-boiler-pm-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"] ~ td {
+  height: 48px;
+}
+
+.official-print-chappee-boiler-pm-page .official-print-pm-table tbody tr.official-print-row-xl td {
+  height: 40px;
+}
+
+.official-print-ahu-pm-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"],
+.official-print-ahu-pm-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"] ~ td {
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  font-synthesis: none;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  height: 34px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  vertical-align: middle;
+}
+
+.official-print-ahu-pm-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"] *,
+.official-print-ahu-pm-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"] ~ td * {
+  font-size: inherit !important;
+  font-weight: 400 !important;
+}
+
+.official-print-layout-landscape .official-print-ahu-pm-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"],
+.official-print-layout-landscape .official-print-ahu-pm-page .official-print-pm-table tbody tr.official-print-row-tall td[colspan="2"] ~ td {
+  font-size: 17px !important;
+  font-weight: 400 !important;
+}
+
+.official-print-ahu-pm-page .official-print-pm-table tbody tr.official-print-row-tall td .official-print-pm-signature-name {
+  font-size: 12px !important;
+  line-height: 1.1;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
+}
+
+.official-print-pm-page.official-print-ahu-pm-page .official-print-pm-table thead th {
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.official-print-ahu-pm-page .official-print-pm-header td {
+  font-size: 15px !important;
+}
+
+.official-print-ahu-pm-page .official-print-pm-header td:nth-child(2) {
+  font-size: 16px !important;
+}
+
+.official-print-ahu-pm-page .official-print-pm-header td:nth-child(3) {
+  font-size: 16px !important;
+}
+
+.official-print-layout-landscape .official-print-ahu-pm-page .official-print-pm-header td:nth-child(2) {
+  font-size: 18px !important;
+}
+
+.official-print-layout-landscape .official-print-ahu-pm-page .official-print-pm-table thead th,
+.official-print-layout-landscape .official-print-ahu-pm-page .official-print-pm-table td.official-print-pm-point-text {
+  font-size: 17px;
+}
+
+.official-print-pm-english-term {
+  display: inline-block;
+  direction: ltr;
+  unicode-bidi: isolate;
+  white-space: nowrap;
 }
 
 .official-print-pm-data-row td {
@@ -2225,9 +3090,9 @@ main:has([data-permissions-page='true']) > div:last-child {
   }
 
   .official-print-layout-landscape .official-print-cm-content {
-    width: 270mm;
+    width: 281mm;
     max-width: 100%;
-    margin: 8mm auto 0;
+    margin: 4mm auto 0;
     font-size: 14px;
   }
 
@@ -2236,20 +3101,33 @@ main:has([data-permissions-page='true']) > div:last-child {
   }
 
   .official-print-layout-landscape .official-print-cm-machine-details {
-    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(8px, 1.5vw, 28px);
+    font-size: 17px;
     margin-block: 7mm;
+  }
+
+  .official-print-layout-landscape .official-print-cm-machine-details > div {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .official-print-layout-landscape .official-print-cm-log th,
   .official-print-layout-landscape .official-print-cm-log td {
-    border: 2px solid #000 !important;
+    border: 1px solid #000 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     padding: 5px 6px;
   }
 
   .official-print-layout-landscape .official-print-cm-log th {
-    font-size: 14px;
+    font-size: 15px;
+  }
+
+  .official-print-layout-landscape .official-print-cm-log td {
+    font-size: 15px;
   }
 
   .official-print-layout-landscape .official-print-cm-log tbody tr {
@@ -2259,6 +3137,7 @@ main:has([data-permissions-page='true']) > div:last-child {
   .official-print-page:has(.official-print-cm-content) {
     break-inside: avoid-page;
     page-break-inside: avoid;
+    padding: 8mm;
   }
 
   .official-print-pm-table th {
@@ -2271,6 +3150,9 @@ main:has([data-permissions-page='true']) > div:last-child {
     width: 160mm;
     max-width: 100%;
     margin: 12mm auto 0;
+    color: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .official-print-page.official-print-landscape .official-print-pm-content {
@@ -2291,21 +3173,21 @@ main:has([data-permissions-page='true']) > div:last-child {
 
   .official-print-layout-landscape .official-print-pm-table th,
   .official-print-layout-landscape .official-print-pm-table tbody td:nth-child(2) {
-    font-size: 13px;
+    font-size: 14px;
   }
 
-  /* A 16-point landscape chunk must fit inside one physical A4 sheet even
-     when Chromium's optional print header/footer is enabled. */
+  /* Preserve the first page's centred top position on every following sheet.
+     The measured inset prevents short final pages from drifting downward. */
   .official-print-layout-landscape .official-print-pm-page {
     break-inside: avoid-page;
     page-break-inside: avoid;
     box-sizing: border-box;
     height: 210mm;
-    padding-top: 5mm;
+    padding-top: var(--pm-first-page-top, 5mm);
     padding-bottom: 5mm;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .official-print-layout-landscape .official-print-pm-page .official-print-pm-content {
@@ -2338,11 +3220,66 @@ main:has([data-permissions-page='true']) > div:last-child {
 
   .official-print-layout-landscape .official-print-pm-table td.official-print-pm-point-text {
     line-height: 1.2;
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .official-print-layout-landscape .official-print-pm-table tbody tr.official-print-row-tall td:first-child {
     font-size: 13px;
+  }
+
+  /* Keep Huttlin at the same physical A4-landscape scale shown in preview.
+     Explicit dimensions prevent the print engine from shrinking the form
+     when it recalculates the page after opening the system print dialog. */
+  .official-print-layout-landscape .official-print-page.official-print-huttlin-pm-page {
+    box-sizing: border-box;
+    width: 297mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    padding: 18mm !important;
+    display: block !important;
+    zoom: 1 !important;
+    transform: none !important;
+  }
+
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-content {
+    width: 260mm !important;
+    max-width: 260mm !important;
+    margin: 0 auto !important;
+    zoom: 1 !important;
+    transform: none !important;
+  }
+
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table.mt-8 {
+    margin-top: 2rem !important;
+  }
+
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table,
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table th,
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table td,
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table td.official-print-pm-point-text {
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+  }
+
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table tbody tr.official-print-row-tall > td {
+    height: 25.2px !important;
+    min-height: 25.2px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    vertical-align: middle !important;
+  }
+
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table thead tr:nth-child(1) th,
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table thead tr:nth-child(2) th {
+    height: 25.2px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+
+  .official-print-layout-landscape .official-print-huttlin-pm-page .official-print-pm-table thead tr:nth-child(3) th {
+    height: 46.3px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
   }
 
   /* Screen preview uses a 210mm page height for landscape. It must not carry
@@ -2369,5 +3306,52 @@ main:has([data-permissions-page='true']) > div:last-child {
 
   .official-print-landscape {
     width: auto;
+  }
+
+  /* Centre the complete Fabtech record (document header + checklist) between
+     the physical top and bottom edges without changing its scale. */
+  .official-print-layout-landscape .official-print-page.official-print-fabtech-pm-page {
+    box-sizing: border-box;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+
+  .official-print-layout-landscape .official-print-fabtech-pm-page .official-print-pm-content {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .official-print-layout-landscape .official-print-page.official-print-fabtech-pm-page.official-print-pm-page-final {
+    padding-top: var(--pm-first-page-top, 5mm) !important;
+    justify-content: flex-start !important;
+  }
+
+  .official-print-page.official-print-kalix-pm-page {
+    box-sizing: border-box;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    padding-top: calc(var(--kalix-page-top, 20mm) + 5mm) !important;
+    padding-bottom: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+  }
+
+  .official-print-kalix-pm-page .official-print-pm-content {
+    margin: 0 auto !important;
+  }
+
+  .official-print-kalix-pm-page .official-print-pm-table.mt-8 {
+    margin-top: 3mm !important;
+  }
+
+  .official-print-layout-landscape .official-print-page.official-print-kalix-pm-page {
+    height: 210mm !important;
+    min-height: 210mm !important;
   }
 }

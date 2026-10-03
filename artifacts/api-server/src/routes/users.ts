@@ -142,6 +142,7 @@ router.post("/", requireActiveAuth, requirePermission("manage_users"), async (re
           email: email ?? null,
           roleId,
           departmentId: departmentId ?? null,
+          machineDepartmentIds: [],
           isActive: true,
         })
         .returning({ id: usersTable.id });
@@ -171,6 +172,33 @@ router.post("/", requireActiveAuth, requirePermission("manage_users"), async (re
       throw err;
     }
   } catch (err) { next(err); }
+});
+
+// Machine visibility is independent of the employee's own department.
+router.get("/:id/machine-access", requireActiveAuth, requirePermission("manage_users"), async (req, res, next) => {
+  try {
+    const [user] = await db.select({ departmentIds: usersTable.machineDepartmentIds }).from(usersTable).where(eq(usersTable.id, parseIdParam(req.params.id)));
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+    res.json(user);
+  } catch (error) { next(error); }
+});
+
+router.put("/:id/machine-access", requireActiveAuth, requirePermission("manage_users"), async (req, res, next) => {
+  try {
+    const value: unknown = req.body?.departmentIds;
+    if (value !== null && (!Array.isArray(value) || value.some((id) => !Number.isInteger(id) || id <= 0))) {
+      res.status(400).json({ error: "departmentIds must be null or an array of department IDs" }); return;
+    }
+    const ids = value === null ? null : [...new Set(value as number[])];
+    if (ids?.length) {
+      const existing = await db.select({ id: departmentsTable.id }).from(departmentsTable).where(inArray(departmentsTable.id, ids));
+      if (existing.length !== ids.length) { res.status(400).json({ error: "Unknown department" }); return; }
+    }
+    const [user] = await db.update(usersTable).set({ machineDepartmentIds: ids, updatedAt: new Date() })
+      .where(eq(usersTable.id, parseIdParam(req.params.id))).returning({ departmentIds: usersTable.machineDepartmentIds });
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+    res.json(user);
+  } catch (error) { next(error); }
 });
 
 // GET /api/users/:id

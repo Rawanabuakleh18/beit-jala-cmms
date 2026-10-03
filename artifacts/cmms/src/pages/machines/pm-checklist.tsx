@@ -128,7 +128,6 @@ export default function PmChecklistPage({ params }: { params: { id: string } }) 
                 <TableHead>Order</TableHead>
                 <TableHead>Checklist Point</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -162,7 +161,6 @@ export default function PmChecklistPage({ params }: { params: { id: string } }) 
                       </Select>
                     ) : point.resultType}
                   </TableCell>
-                  <TableCell>{point.isActive ? "Active" : "Inactive"}</TableCell>
                   <TableCell className="text-right">
                     {editingId === point.id ? (
                       <div className="flex justify-end gap-1">

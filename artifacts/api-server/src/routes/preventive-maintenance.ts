@@ -70,20 +70,34 @@ async function getOrCreateHeader(machineId: number) {
     .select()
     .from(pmHeadersTable)
     .where(eq(pmHeadersTable.machineId, machineId));
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.pmRecordTitle) {
+      const machine = await machineExists(machineId);
+      const [updated] = await db
+        .update(pmHeadersTable)
+        .set({
+          pmRecordTitle: `${existing.pmRecordDescription || "سجل نشاطات الصيانة الوقائية لجهاز"}\n${existing.machineRecordName || machine?.machineName || ""} (${existing.machineRecordId || machine?.machineNumber || ""})`,
+          updatedAt: new Date(),
+        })
+        .where(eq(pmHeadersTable.id, existing.id))
+        .returning();
+      return updated!;
+    }
+    return existing;
+  }
 
   const machine = await machineExists(machineId);
-  const [sharedHeader] = await db.select({
-    procedureFormNumber: pmHeadersTable.procedureFormNumber,
-    effectiveDate: pmHeadersTable.effectiveDate,
-  }).from(pmHeadersTable).orderBy(desc(pmHeadersTable.updatedAt)).limit(1);
   const [created] = await db
     .insert(pmHeadersTable)
     .values({
       machineId,
       department: machine?.departmentName ?? null,
-      procedureFormNumber: sharedHeader?.procedureFormNumber ?? "LOG-00-0102",
-      effectiveDate: sharedHeader?.effectiveDate ?? null,
+      machineRecordName: machine?.machineName ?? null,
+      machineRecordId: machine?.machineNumber ?? null,
+      pmRecordDescription: "سجل نشاطات الصيانة الوقائية لجهاز",
+      pmRecordTitle: machine ? `سجل نشاطات الصيانة الوقائية لجهاز\n${machine.machineName} (${machine.machineNumber})` : "سجل نشاطات الصيانة الوقائية لجهاز",
+      procedureFormNumber: "LOG-00-0102",
+      effectiveDate: null,
       columnsPerRecord: 5,
       inspectionColumnsPerPrintPage: 2,
     })
@@ -125,6 +139,52 @@ async function getActiveChecklist(machineId: number) {
     .from(pmChecklistPointsTable)
     .where(and(eq(pmChecklistPointsTable.machineId, machineId), eq(pmChecklistPointsTable.isActive, true)))
     .orderBy(asc(pmChecklistPointsTable.sortOrder), asc(pmChecklistPointsTable.id));
+}
+
+async function activeRecordHasChecklistSnapshot(recordId: number) {
+  const [snapshot] = await db
+    .select({ id: pmRecordChecklistPointsTable.id })
+    .from(pmRecordChecklistPointsTable)
+    .where(eq(pmRecordChecklistPointsTable.recordId, recordId))
+    .limit(1);
+  return Boolean(snapshot);
+}
+
+async function syncPointToActiveRecordSnapshot(
+  record: typeof pmRecordsTable.$inferSelect,
+  point: typeof pmChecklistPointsTable.$inferSelect,
+) {
+  const [updated] = await db
+    .update(pmRecordChecklistPointsTable)
+    .set({
+      pointText: point.pointText,
+      resultType: point.resultType,
+      sortOrder: point.sortOrder,
+    })
+    .where(and(
+      eq(pmRecordChecklistPointsTable.recordId, record.id),
+      eq(pmRecordChecklistPointsTable.sourceChecklistPointId, point.id),
+    ))
+    .returning({ id: pmRecordChecklistPointsTable.id });
+
+  if (!updated && await activeRecordHasChecklistSnapshot(record.id)) {
+    await db.insert(pmRecordChecklistPointsTable).values({
+      recordId: record.id,
+      sourceChecklistPointId: point.id,
+      pointText: point.pointText,
+      resultType: point.resultType,
+      sortOrder: point.sortOrder,
+    });
+  }
+}
+
+async function removePointFromActiveRecordSnapshot(recordId: number, pointId: number) {
+  await db
+    .delete(pmRecordChecklistPointsTable)
+    .where(and(
+      eq(pmRecordChecklistPointsTable.recordId, recordId),
+      eq(pmRecordChecklistPointsTable.sourceChecklistPointId, pointId),
+    ));
 }
 
 async function snapshotChecklist(record: typeof pmRecordsTable.$inferSelect) {
@@ -354,8 +414,8 @@ async function recordDetail(machineId: number, record = undefined as typeof pmRe
   return {
     record: await summarizeRecord(activeRecord),
     machine: {
-      name: machine?.machineName ?? "",
-      number: machine?.machineNumber ?? "",
+      name: header.machineRecordName || machine?.machineName || "",
+      number: header.machineRecordId || machine?.machineNumber || "",
     },
     header: formatHeader(header),
     checklistPoints: checklist.map(formatPoint),
@@ -388,6 +448,14 @@ router.put("/header", requireAuth, requirePermission("edit_header_preventive_mai
       procedureFormNumber?: string;
       effectiveDate?: string | null;
       department?: string | null;
+      machineRecordName?: string | null;
+      machineRecordId?: string | null;
+      machineRecordLabel?: string | null;
+      showServiceArea?: boolean;
+      serviceAreaMachineNumber?: string | null;
+      serviceAreaLocation?: string | null;
+      pmRecordDescription?: string | null;
+      pmRecordTitle?: string | null;
       columnsPerRecord?: number;
       inspectionColumnsPerPrintPage?: number;
     };
@@ -400,17 +468,19 @@ router.put("/header", requireAuth, requirePermission("edit_header_preventive_mai
         procedureFormNumber: body.procedureFormNumber || "LOG-00-0102",
         effectiveDate: body.effectiveDate ?? null,
         department: body.department ?? null,
+        pmRecordDescription: body.pmRecordDescription?.trim() || "سجل نشاطات الصيانة الوقائية لجهاز",
+        machineRecordName: body.machineRecordName?.trim() || null,
+        machineRecordId: body.machineRecordId?.trim() || null,
+        showServiceArea: typeof body.showServiceArea === "boolean" ? body.showServiceArea : undefined,
+        serviceAreaMachineNumber: body.serviceAreaMachineNumber === undefined ? undefined : body.serviceAreaMachineNumber?.trim() || null,
+        serviceAreaLocation: body.serviceAreaLocation === undefined ? undefined : body.serviceAreaLocation?.trim() || null,
+        pmRecordTitle: body.pmRecordTitle?.trim() || "سجل نشاطات الصيانة الوقائية لجهاز",
         columnsPerRecord,
         inspectionColumnsPerPrintPage,
         updatedAt: new Date(),
       })
       .where(eq(pmHeadersTable.machineId, machineId))
       .returning();
-    await db.update(pmHeadersTable).set({
-      procedureFormNumber: body.procedureFormNumber || "LOG-00-0102",
-      effectiveDate: body.effectiveDate ?? null,
-      updatedAt: new Date(),
-    }).where(sql`${pmHeadersTable.machineId} IN (SELECT id FROM machines WHERE deleted_at IS NULL) AND ${pmHeadersTable.machineId} <> ${machineId}`);
     res.json(formatHeader(updated!));
   } catch (err) {
     next(err);
@@ -443,7 +513,7 @@ router.post("/checklist", requireAuth, requirePermission("manage_pm_checklist"),
       res.status(400).json({ error: "pointText is required" });
       return;
     }
-    await rolloverCompletedRecord(machineId);
+    const activeRecord = await rolloverCompletedRecord(machineId);
     const sortOrder = await nextChecklistOrder(machineId);
     const [created] = await db
       .insert(pmChecklistPointsTable)
@@ -454,6 +524,7 @@ router.post("/checklist", requireAuth, requirePermission("manage_pm_checklist"),
         sortOrder,
       })
       .returning();
+    await syncPointToActiveRecordSnapshot(activeRecord, created!);
     res.status(201).json(formatPoint(created!));
   } catch (err) {
     next(err);
@@ -470,7 +541,7 @@ router.put("/checklist/:pointId", requireAuth, requirePermission("manage_pm_chec
       res.status(400).json({ error: "pointText is required" });
       return;
     }
-    await rolloverCompletedRecord(machineId);
+    const activeRecord = await rolloverCompletedRecord(machineId);
     const [updated] = await db
       .update(pmChecklistPointsTable)
       .set({
@@ -489,6 +560,7 @@ router.put("/checklist/:pointId", requireAuth, requirePermission("manage_pm_chec
       res.status(404).json({ error: "Checklist point not found" });
       return;
     }
+    await syncPointToActiveRecordSnapshot(activeRecord, updated);
     res.json(formatPoint(updated));
   } catch (err) {
     next(err);
@@ -499,7 +571,7 @@ router.patch("/checklist/:pointId", requireAuth, requirePermission("manage_pm_ch
   try {
     const machineId = parseIdParam(req.params.id);
     const pointId = parseIdParam(req.params.pointId);
-    await rolloverCompletedRecord(machineId);
+    const activeRecord = await rolloverCompletedRecord(machineId);
     const [updated] = await db
       .update(pmChecklistPointsTable)
       .set({ isActive: false, deactivatedAt: new Date(), updatedAt: new Date() })
@@ -509,6 +581,7 @@ router.patch("/checklist/:pointId", requireAuth, requirePermission("manage_pm_ch
       res.status(404).json({ error: "Checklist point not found" });
       return;
     }
+    await removePointFromActiveRecordSnapshot(activeRecord.id, updated.id);
     res.json(formatPoint(updated));
   } catch (err) {
     next(err);

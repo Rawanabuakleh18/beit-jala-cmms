@@ -5,6 +5,8 @@ import {
   integer,
   numeric,
   timestamp,
+  jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -41,6 +43,7 @@ export const equipmentInformationTable = pgTable(
     }),
     dimensionsNote: text("dimensions_note"),
     weightKg: numeric("weight_kg", { precision: 10, scale: 2 }),
+    weightNote: text("weight_note"),
     utilitiesPowerSupply: text("utilities_power_supply"),
     utilitiesAir: text("utilities_air"),
     utilitiesWater: text("utilities_water"),
@@ -67,3 +70,13 @@ export type InsertEquipmentInformation = z.infer<
 >;
 export type EquipmentInformation =
   typeof equipmentInformationTable.$inferSelect;
+
+// Additional records are opt-in per machine; the original record stays intact.
+export const additionalEquipmentRecordsTable = pgTable("additional_equipment_records", {
+  id: serial("id").primaryKey(),
+  machineId: integer("machine_id").notNull().references(() => machinesTable.id, { onDelete: "cascade" }),
+  recordNumber: integer("record_number").notNull(),
+  data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+  header: jsonb("header").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, table => [uniqueIndex("additional_equipment_machine_number_idx").on(table.machineId, table.recordNumber)]);

@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArrowLeft, Check, ChevronsUpDown, Save } from "lucide-react";
 import type { MaintenanceRequestDetail } from "./types";
 
 type MachineOption = {
@@ -24,6 +26,8 @@ type DepartmentOption = { id: number; name: string };
 export default function NewMaintenanceRequestPage() {
   const [, setLocation] = useLocation();
   const [machineId, setMachineId] = useState("");
+  const [isMachinePickerOpen, setIsMachinePickerOpen] = useState(false);
+  const [machineSearch, setMachineSearch] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [priority, setPriority] = useState("normal");
   const [requestDate, setRequestDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -39,6 +43,15 @@ export default function NewMaintenanceRequestPage() {
     queryKey: ["request-department-options"],
     queryFn: () => apiRequest<DepartmentOption[]>("/departments"),
   });
+  const selectedMachine = machines.find((machine) => String(machine.id) === machineId);
+  const normalizedMachineSearch = machineSearch.trim().toLocaleLowerCase();
+  const filteredMachines = normalizedMachineSearch
+    ? machines.filter((machine) =>
+        `${machine.machineName} ${machine.machineNumber}`
+          .toLocaleLowerCase()
+          .includes(normalizedMachineSearch),
+      )
+    : machines;
 
   const createRequest = useMutation({
     mutationFn: () =>
@@ -83,18 +96,58 @@ export default function NewMaintenanceRequestPage() {
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div>
             <Label>Machine name / machine number</Label>
-            <Select value={machineId} onValueChange={setMachineId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select machine" />
-              </SelectTrigger>
-              <SelectContent>
-                {machines.map((machine) => (
-                  <SelectItem key={machine.id} value={String(machine.id)}>
-                    {machine.machineName} / {machine.machineNumber}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover
+              open={isMachinePickerOpen}
+              onOpenChange={(open) => {
+                setIsMachinePickerOpen(open);
+                if (!open) setMachineSearch("");
+              }}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between font-normal"
+                >
+                  <span className="truncate">
+                    {selectedMachine
+                      ? `${selectedMachine.machineName} / ${selectedMachine.machineNumber}`
+                      : "Select machine"}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    value={machineSearch}
+                    onValueChange={setMachineSearch}
+                    placeholder="Search by machine name or number..."
+                  />
+                  <CommandList>
+                    {filteredMachines.length === 0 && <CommandEmpty>No matching machines found.</CommandEmpty>}
+                    <CommandGroup>
+                      {filteredMachines.map((machine) => (
+                        <CommandItem
+                          key={machine.id}
+                          value={`${machine.machineName} ${machine.machineNumber}`}
+                          onSelect={() => {
+                            setMachineId(String(machine.id));
+                            setIsMachinePickerOpen(false);
+                            setMachineSearch("");
+                          }}
+                        >
+                          <Check className={`h-4 w-4 ${machineId === String(machine.id) ? "opacity-100" : "opacity-0"}`} />
+                          <span className="truncate">{machine.machineName} / {machine.machineNumber}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <p className="mt-1 text-xs text-muted-foreground">Search using any part of the machine name or number.</p>
           </div>
           <div>
             <Label>Department / Section</Label>

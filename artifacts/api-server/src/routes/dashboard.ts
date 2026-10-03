@@ -16,6 +16,7 @@ import {
 } from "@workspace/db";
 import { and, eq, inArray, isNull, count, sql } from "drizzle-orm";
 import { requireActiveAuth, requirePermission } from "../lib/auth.js";
+import { machineAccess, departmentAccess, canAccessDocument } from "../lib/machine-access.js";
 
 const router = Router();
 
@@ -44,9 +45,9 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
   const [machineStats] = await db
     .select({
       total: count(),
-      active: sql<number>`count(*) filter (where ${machinesTable.deletedAt} is null and ${machinesTable.status} = 'active')`,
+      active: sql<number>`count(*) filter (where lower(${machinesTable.status}) = 'active')`,
     })
-    .from(machinesTable);
+    .from(machinesTable).where(and(machineAccess(), isNull(machinesTable.deletedAt)));
 
   const [userStats] = await db
     .select({
@@ -57,7 +58,7 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
 
   const [deptStats] = await db
     .select({ total: count() })
-    .from(departmentsTable);
+    .from(departmentsTable).where(departmentAccess(departmentsTable.id));
 
   // Machines by department
   const byDept = await db
@@ -67,7 +68,7 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
     })
     .from(machinesTable)
     .leftJoin(departmentsTable, eq(machinesTable.departmentId, departmentsTable.id))
-    .where(isNull(machinesTable.deletedAt))
+    .where(and(machineAccess(), isNull(machinesTable.deletedAt)))
     .groupBy(departmentsTable.name);
 
   // Machines by status
@@ -77,7 +78,7 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
       count: count(),
     })
     .from(machinesTable)
-    .where(isNull(machinesTable.deletedAt))
+    .where(and(machineAccess(), isNull(machinesTable.deletedAt)))
     .groupBy(machinesTable.status);
 
   const now = new Date();
@@ -98,6 +99,7 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
     .innerJoin(monthlyPmPlansTable, eq(monthlyPmPlanRowsTable.planId, monthlyPmPlansTable.id))
     .where(and(
       eq(monthlyPmPlansTable.year, currentYear),
+      machineAccess(monthlyPmPlanRowsTable.machineId),
       eq(monthlyPmPlansTable.month, currentMonth),
       eq(monthlyPmPlanRowsTable.isManuallyRemoved, false),
     ));
@@ -126,7 +128,7 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
   const requestRows = await db
     .select()
     .from(maintenanceRequestsTable)
-    .where(isNull(maintenanceRequestsTable.archivedAt));
+    .where(and(machineAccess(maintenanceRequestsTable.machineId), isNull(maintenanceRequestsTable.archivedAt)));
   const currentUserId = req.session.userId;
   const requestSummary = {
     total: requestRows.length,
@@ -220,7 +222,10 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
       if (documentType === "MONTHLY_MAINTENANCE_EVALUATION") return "/reports";
       return "/dashboard";
     };
-    requestNotifications.push(...signatureAssignments
+    const allowedAssignments = (await Promise.all(signatureAssignments.map(async (assignment) =>
+      await canAccessDocument(assignment.documentType, assignment.documentId) ? assignment : null,
+    ))).filter((assignment) => assignment !== null);
+    requestNotifications.push(...allowedAssignments
       .filter((assignment) => !signedAssignmentKeys.has(`${assignment.documentType}:${assignment.documentId}:${assignment.fieldName}`))
       .map((assignment) => ({
         type: "signature",
@@ -234,7 +239,7 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
     if (receiverPermission) {
       const pendingReceipts = await db.select({ inspectionId: pmInspectionsTable.id, machineId: pmInspectionsTable.machineId, machineName: machinesTable.machineName, machineNumber: machinesTable.machineNumber, completedByUserId: pmInspectionsTable.completedByUserId })
         .from(pmInspectionsTable).innerJoin(machinesTable, eq(pmInspectionsTable.machineId, machinesTable.id))
-        .where(isNull(pmInspectionsTable.machineReceiverSignature));
+        .where(and(machineAccess(pmInspectionsTable.machineId), isNull(pmInspectionsTable.machineReceiverSignature)));
       requestNotifications.push(...pendingReceipts
         .filter((inspection) => inspection.completedByUserId !== currentUserId)
         .map((inspection) => ({ type: "signature", message: `صيانة وقائية بانتظار استلامك للماكينة: ${inspection.machineName} (${inspection.machineNumber})`, href: `/machines/${inspection.machineId}/pm` })));
@@ -260,7 +265,7 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
         })
         .from(correctiveMaintenanceEventsTable)
         .innerJoin(maintenanceRequestsTable, eq(correctiveMaintenanceEventsTable.requestId, maintenanceRequestsTable.id))
-        .where(isNull(maintenanceRequestsTable.archivedAt));
+        .where(and(machineAccess(maintenanceRequestsTable.machineId), isNull(maintenanceRequestsTable.archivedAt)));
       const candidateIds = concernedSupervisorCandidates
         .filter((candidate) => candidate.preliminaryCheckResults)
         .map((candidate) => candidate.requestId);
@@ -307,7 +312,11 @@ router.get("/stats", requireActiveAuth, requirePermission("view_dashboard"), asy
     completed: monthlyPmRows
       .filter((r) => !!r.actualDate)
       .map((r) => ({ id: r.id, machineId: r.machineId, machineName: r.machineName, machineNumber: r.machineNumber ?? "" })),
-    overdue: overdueRows
+    // Keep the drill-down list aligned with the chart segment. The segment is
+    // "Overdue / Not Completed", so it must include every unfinished PM row,
+    // including work that is scheduled later in the current month.
+    overdue: monthlyPmRows
+      .filter((r) => !r.actualDate)
       .map((r) => ({ id: r.id, machineId: r.machineId, machineName: r.machineName, machineNumber: r.machineNumber ?? "" })),
   };
   const recentRequests = requestRows

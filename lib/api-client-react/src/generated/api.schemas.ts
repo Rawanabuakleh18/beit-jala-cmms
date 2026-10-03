@@ -210,6 +210,7 @@ export interface MachineInput {
 }
 
 export interface MachineUpdate {
+  applyPmScheduleToPlanYear?: number | null;
   machineNumber?: string;
   machineName?: string;
   /** @nullable */
@@ -253,6 +254,8 @@ export interface EquipmentInformation {
   dimensionsNote?: string | null;
   /** @nullable */
   weightKg?: number | null;
+  /** @nullable */
+  weightNote?: string | null;
   /** @nullable */
   utilitiesPowerSupply?: string | null;
   /** @nullable */
@@ -300,6 +303,7 @@ export interface EquipmentInformationInput {
   dimensionsNote?: string;
   /** @nullable */
   weightKg?: number | null;
+  weightNote?: string;
   utilitiesPowerSupply?: string;
   utilitiesAir?: string;
   utilitiesWater?: string;

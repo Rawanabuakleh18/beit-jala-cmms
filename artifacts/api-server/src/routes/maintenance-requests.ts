@@ -31,6 +31,7 @@ import {
 } from "@workspace/db";
 import { and, asc, count, desc, eq, isNull, like, sql } from "drizzle-orm";
 import { parseIdParam, requireAnyPermission, requireAuth, requirePermission } from "../lib/auth.js";
+import { machineAccess, restrictedMachineAccess } from "../lib/machine-access.js";
 
 const router = Router();
 
@@ -336,7 +337,7 @@ async function getRequest(id: number) {
   const [request] = await db
     .select()
     .from(maintenanceRequestsTable)
-    .where(eq(maintenanceRequestsTable.id, id));
+    .where(and(eq(maintenanceRequestsTable.id, id), machineAccess(maintenanceRequestsTable.machineId)));
   return request ?? null;
 }
 
@@ -612,7 +613,7 @@ async function getOrCreateCmRecord(
       machineName: machine.machineName,
       machineNumber: machine.machineNumber,
       machineLocation: machine.location ?? null,
-      startupDate: machine.pmStartDate ?? null,
+      startupDate: machine.location ? (machine.pmStartDate ?? null) : null,
     })
     .returning();
   return created!;
@@ -638,7 +639,7 @@ router.get("/reports/corrective-maintenance-time", requireAuth, requirePermissio
       .from(correctiveMaintenanceEventsTable)
       .innerJoin(correctiveMaintenanceRecordsTable, eq(correctiveMaintenanceEventsTable.recordId, correctiveMaintenanceRecordsTable.id))
       .leftJoin(maintenanceRequestsTable, eq(correctiveMaintenanceEventsTable.requestId, maintenanceRequestsTable.id))
-      .where(isNull(maintenanceRequestsTable.archivedAt));
+      .where(and(isNull(maintenanceRequestsTable.archivedAt), machineAccess(correctiveMaintenanceRecordsTable.machineId)));
 
     const byMachine = new Map<number, { machineId: number; machineName: string; machineNumber: string; totalMinutes: number; intervals: Array<{ date: string; from: string; to: string; minutes: number }> }>();
     for (const row of eventRows) {
@@ -685,7 +686,7 @@ router.get(
       const requests = (await db
         .select()
         .from(maintenanceRequestsTable)
-        .where(isNull(maintenanceRequestsTable.archivedAt)))
+        .where(and(isNull(maintenanceRequestsTable.archivedAt), machineAccess(maintenanceRequestsTable.machineId))))
         .filter((item) => item.requestDate?.startsWith(`${year}-`))
         .sort((a, b) =>
           (a.requestDate ?? "").localeCompare(b.requestDate ?? ""),
@@ -787,11 +788,11 @@ router.get(
         db
           .select()
           .from(monthlyMaintenanceEvaluationReportsTable)
-          .where(eq(monthlyMaintenanceEvaluationReportsTable.year, year)),
+          .where(and(eq(monthlyMaintenanceEvaluationReportsTable.year, year), restrictedMachineAccess() ? sql`false` : sql`true`)),
         db
           .select()
           .from(maintenanceRequestsTable)
-          .where(isNull(maintenanceRequestsTable.archivedAt)),
+          .where(and(isNull(maintenanceRequestsTable.archivedAt), machineAccess(maintenanceRequestsTable.machineId))),
       ]);
       const evaluationByMonth = new Map(
         evaluations.map((evaluation) => [evaluation.month, evaluation]),
@@ -960,6 +961,7 @@ async function preventiveEvaluationMetrics(year: number, month: number) {
   const rows = await db.select().from(monthlyPmPlanRowsTable).where(and(
     eq(monthlyPmPlanRowsTable.planId, plan.id),
     eq(monthlyPmPlanRowsTable.isManuallyRemoved, false),
+    machineAccess(monthlyPmPlanRowsTable.machineId),
   )).orderBy(asc(monthlyPmPlanRowsTable.rowNumber));
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
   const inspections = await db.select({ machineId: pmInspectionsTable.machineId }).from(pmInspectionsTable).where(like(pmInspectionsTable.inspectionDate, `${monthKey}-%`));
@@ -982,6 +984,7 @@ async function maintenanceRequestEvaluationMetrics(year: number, month: number) 
     .from(maintenanceRequestsTable)
     .where(and(
       like(maintenanceRequestsTable.requestDate, `${monthKey}-%`),
+      machineAccess(maintenanceRequestsTable.machineId),
       isNull(maintenanceRequestsTable.archivedAt),
     ));
   const completedCorrectiveRequests = correctiveRequests.filter((request) =>
@@ -994,6 +997,7 @@ async function maintenanceRequestEvaluationMetrics(year: number, month: number) 
     .innerJoin(maintenanceRequestsTable, eq(externalMaintenanceRequestsTable.maintenanceRequestId, maintenanceRequestsTable.id))
     .where(and(
       like(externalMaintenanceRequestsTable.requestDate, `${monthKey}-%`),
+      machineAccess(maintenanceRequestsTable.machineId),
       isNull(maintenanceRequestsTable.archivedAt),
     ));
   return {
@@ -1020,6 +1024,7 @@ router.get(
           and(
             eq(monthlyMaintenanceEvaluationReportsTable.year, year),
             eq(monthlyMaintenanceEvaluationReportsTable.month, month),
+            restrictedMachineAccess() ? sql`false` : sql`true`,
           ),
         );
       const preventiveMetrics = await preventiveEvaluationMetrics(year, month);
@@ -1341,6 +1346,7 @@ router.get("/", requireAuth, async (req, res, next) => {
     let rows = await db
       .select()
       .from(maintenanceRequestsTable)
+      .where(machineAccess(maintenanceRequestsTable.machineId))
       .orderBy(desc(maintenanceRequestsTable.createdAt));
     const signatureAssignments = req.session.userId
       ? await db
@@ -1505,6 +1511,7 @@ router.get(
           departmentsTable,
           eq(machinesTable.departmentId, departmentsTable.id),
         )
+        .where(and(machineAccess(), isNull(machinesTable.deletedAt)))
         .orderBy(asc(machinesTable.machineName));
       res.json(machines);
     } catch (err) {
@@ -1614,6 +1621,7 @@ router.get(
               maintenanceRequestsTable.id,
             ),
           )
+          .where(machineAccess(maintenanceRequestsTable.machineId))
           .orderBy(
             desc(maintenanceRequestsTable.updatedAt),
           ),
@@ -1631,7 +1639,7 @@ router.get(
       const manualRows = await db
         .select()
         .from(closedCorrectiveMaintenanceManualEntriesTable)
-        .where(isNull(closedCorrectiveMaintenanceManualEntriesTable.deletedAt))
+        .where(and(isNull(closedCorrectiveMaintenanceManualEntriesTable.deletedAt), restrictedMachineAccess() ? sql`false` : sql`true`))
         .orderBy(
           desc(closedCorrectiveMaintenanceManualEntriesTable.closedDate),
           desc(closedCorrectiveMaintenanceManualEntriesTable.id),
@@ -1965,7 +1973,7 @@ router.get("/by-number/:requestNumber", requireAuth, async (req, res, next) => {
     const [request] = await db
       .select()
       .from(maintenanceRequestsTable)
-      .where(eq(maintenanceRequestsTable.requestReportNumber, requestNumber));
+      .where(and(eq(maintenanceRequestsTable.requestReportNumber, requestNumber), machineAccess(maintenanceRequestsTable.machineId)));
     if (!request || !ensureCanView(req, request)) {
       res.status(404).json({ error: "Maintenance request not found" });
       return;

@@ -1,0 +1,40 @@
+{
+  "machine": {
+    "id": 107,
+    "machine_number": "PDM-08-082",
+    "machine_name": "Ampoules autoclave"
+  },
+  "header": [
+    {
+      "id": 102,
+      "machine_id": 107,
+      "procedure_form_number": "LOG-00-0102",
+      "effective_date": null,
+      "department": "Production",
+      "columns_per_record": 5,
+      "created_at": "2026-09-28T22:50:00.635Z",
+      "updated_at": "2026-09-28T22:50:00.635Z",
+      "inspection_columns_per_print_page": 2,
+      "machine_record_name": "Ampoules autoclave",
+      "machine_record_id": "PDM-08-082",
+      "machine_record_label": null,
+      "pm_record_description": "سجل نشاطات الصيانة الوقائية لجهاز",
+      "pm_record_title": "سجل نشاطات الصيانة الوقائية لجهاز\nAmpoules autoclave (PDM-08-082)",
+      "show_service_area": false,
+      "service_area_machine_number": null,
+      "service_area_location": null
+    }
+  ],
+  "points": [],
+  "records": [
+    {
+      "id": 105,
+      "machine_id": 107,
+      "sequence_number": 1,
+      "previous_record_id": null,
+      "status": "active",
+      "created_at": "2026-09-28T22:50:00.638Z",
+      "updated_at": "2026-09-28T22:50:00.638Z"
+    }
+  ]
+}

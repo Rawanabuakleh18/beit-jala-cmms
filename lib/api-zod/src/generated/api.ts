@@ -549,6 +549,7 @@ export const UpdateMachineParams = zod.object({
 })
 
 export const UpdateMachineBody = zod.object({
+  "applyPmScheduleToPlanYear": zod.number().int().min(2000).max(2100).nullish(),
   "machineNumber": zod.string().optional(),
   "machineName": zod.string().optional(),
   "departmentId": zod.number().nullish(),
@@ -620,6 +621,7 @@ export const GetEquipmentInformationResponse = zod.object({
   "dimensionHeightCm": zod.number().nullish(),
   "dimensionDepthCm": zod.number().nullish(),
   "weightKg": zod.number().nullish(),
+  "weightNote": zod.string().nullish(),
   "utilitiesPowerSupply": zod.string().nullish(),
   "utilitiesAir": zod.string().nullish(),
   "utilitiesWater": zod.string().nullish(),
@@ -658,6 +660,7 @@ export const UpsertEquipmentInformationBody = zod.object({
   "dimensionHeightCm": zod.number().nullish(),
   "dimensionDepthCm": zod.number().nullish(),
   "weightKg": zod.number().nullish(),
+  "weightNote": zod.string().optional(),
   "utilitiesPowerSupply": zod.string().optional(),
   "utilitiesAir": zod.string().optional(),
   "utilitiesWater": zod.string().optional(),
@@ -688,6 +691,7 @@ export const UpsertEquipmentInformationResponse = zod.object({
   "dimensionHeightCm": zod.number().nullish(),
   "dimensionDepthCm": zod.number().nullish(),
   "weightKg": zod.number().nullish(),
+  "weightNote": zod.string().nullish(),
   "utilitiesPowerSupply": zod.string().nullish(),
   "utilitiesAir": zod.string().nullish(),
   "utilitiesWater": zod.string().nullish(),

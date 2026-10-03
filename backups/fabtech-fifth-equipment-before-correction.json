@@ -1,0 +1,43 @@
+{
+  "id": 8,
+  "machine_id": 58,
+  "record_number": 5,
+  "data": {
+    "others": "11.5. Co mill RPM\n11.6. Basic Structure\n\n\n",
+    "weightKg": null,
+    "weightNote": "N.A",
+    "modelNumber": "FTIL-CM-5HP",
+    "safetyIssues": "Disconnect the electrical plug from the main power supply before performing any maintenance and cleaning",
+    "serialNumber": "FTIL/20/1115",
+    "utilitiesAir": "6 bar-",
+    "datePurchased": "2020",
+    "othersDetails": "0-1440 rpm\nss316 L Contact Part\nss304L Non Contact Part",
+    "approvedByDate": "",
+    "approvedByName": "",
+    "dimensionsNote": "1575L*800W*2000H (mm)",
+    "preparedByDate": "",
+    "preparedByName": "",
+    "utilitiesOther": "200Kg",
+    "utilitiesWater": "Purified Water",
+    "nameOfEquipment": "Granulation Line200Kg/FabTech\nDry CO-Mill 5HP",
+    "dimensionDepthCm": null,
+    "dimensionWidthCm": null,
+    "dimensionHeightCm": null,
+    "purchasedFromName": "a- Fabtech Technologies International Ltd",
+    "safetyIssuesDetails": "",
+    "identificationNumber": "PDM-01-097F",
+    "purchasedFromAddress": "b- 717 Janki centre off veera Desai Road\nAndeheri (W) Mumbai400053,India",
+    "utilitiesPowerSupply": "380volt 50Hz -3PH2880rpm",
+    "manufacturingCompanyName": "a- Fabtech Technologies International Ltd",
+    "manufacturingCompanyAddress": "b- 717 Janki centre off veera Desai Road\nAndeheri (W) Mumbai400053,India"
+  },
+  "header": {
+    "pageNumber": 1,
+    "totalPages": 1,
+    "companyName": "Beit Jala Pharmaceutical Co.",
+    "documentName": "Equipment Information Record",
+    "documentNumber": "FORM-10-0118-1",
+    "effectiveOrExecutionDate": "2013-08-24"
+  },
+  "updated_at": "2026-09-17T05:55:59.967Z"
+}

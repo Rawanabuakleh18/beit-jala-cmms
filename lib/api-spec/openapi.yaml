@@ -2289,6 +2289,11 @@ components:
     MachineUpdate:
       type: object
       properties:
+        applyPmScheduleToPlanYear:
+          type: ["integer", "null"]
+          minimum: 2000
+          maximum: 2100
+          description: Apply the machine PM schedule to this plan year; null saves machine information only.
         machineNumber:
           type: string
         machineName:
@@ -2340,6 +2345,8 @@ components:
           type: ["string", "null"]
         weightKg:
           type: ["number", "null"]
+        weightNote:
+          type: ["string", "null"]
         utilitiesPowerSupply:
           type: ["string", "null"]
         utilitiesAir:
@@ -2400,6 +2407,8 @@ components:
           type: string
         weightKg:
           type: ["number", "null"]
+        weightNote:
+          type: string
         utilitiesPowerSupply:
           type: string
         utilitiesAir:
@@ -2465,6 +2474,16 @@ components:
           type: ["string", "null"]
         department:
           type: ["string", "null"]
+        machineRecordName:
+          type: ["string", "null"]
+        machineRecordId:
+          type: ["string", "null"]
+        machineRecordLabel:
+          type: ["string", "null"]
+        pmRecordDescription:
+          type: ["string", "null"]
+        pmRecordTitle:
+          type: ["string", "null"]
         columnsPerRecord:
           type: integer
         inspectionColumnsPerPrintPage:
@@ -2482,6 +2501,16 @@ components:
         effectiveDate:
           type: ["string", "null"]
         department:
+          type: ["string", "null"]
+        machineRecordName:
+          type: ["string", "null"]
+        machineRecordId:
+          type: ["string", "null"]
+        machineRecordLabel:
+          type: ["string", "null"]
+        pmRecordDescription:
+          type: ["string", "null"]
+        pmRecordTitle:
           type: ["string", "null"]
         columnsPerRecord:
           type: integer

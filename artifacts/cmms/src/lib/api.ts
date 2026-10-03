@@ -1,11 +1,12 @@
+export const apiOrigin = window.location.port === "5173"
+  ? `${window.location.protocol}//${window.location.hostname}:5004`
+  : "";
+
 export async function apiRequest<T>(url: string, init: RequestInit = {}): Promise<T> {
   // Port 5000 can be occupied by an older Windows service during local
-  // development.  The current API is therefore started on 5001 while Vite
+  // development. The updated local API runs on 5004 while Vite
   // keeps its normal 5173 address.  Production remains same-origin.
-  const apiBase =
-    window.location.port === "5173"
-      ? `${window.location.protocol}//${window.location.hostname}:5001/api`
-      : "/api";
+  const apiBase = `${apiOrigin}/api`;
   const response = await fetch(`${apiBase}${url}`, {
     credentials: "include",
     ...init,

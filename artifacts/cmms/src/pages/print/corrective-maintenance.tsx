@@ -12,12 +12,14 @@ function maintenanceType(priority?: string | null) {
   return priority === "urgent" ? "مستعجل" : priority ? "عادي" : "";
 }
 
-function formatExecutionDate(date: string | null) {
+function formatDisplayDate(date: string | null | undefined) {
   if (!date) return "";
-  const [year, month, day] = date.split("-");
-  return year && month && day
-    ? `${day}/${month}/${year}`
-    : date.replaceAll("-", "/");
+  const normalized = date.trim();
+  const iso = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return `${Number(iso[3])}/${Number(iso[2])}/${iso[1]}`;
+  const displayed = normalized.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (displayed) return `${Number(displayed[1])}/${Number(displayed[2])}/${displayed[3]}`;
+  return normalized;
 }
 
 function dateRowSpan(slots: Array<{ date?: string }>, index: number) {
@@ -73,7 +75,7 @@ export default function CorrectiveMaintenancePrintPage({
                     <div>
                       تاريخ التنفيذ:{" "}
                       <bdi dir="ltr">
-                        {formatExecutionDate(record.executionDate)}
+                        {formatDisplayDate(record.executionDate)}
                       </bdi>
                     </div>
                     <div>صفحة 1 من 1</div>
@@ -93,7 +95,7 @@ export default function CorrectiveMaintenancePrintPage({
               </tbody>
             </table>
 
-            <div className="official-print-cm-machine-details my-4 grid grid-cols-4 gap-4 text-right font-semibold">
+            <div className="official-print-cm-machine-details my-4 flex items-center justify-between text-right font-semibold">
               <div>
                 اسم الماكينة: <bdi dir="ltr">{record.machineName}</bdi>
               </div>
@@ -105,7 +107,7 @@ export default function CorrectiveMaintenancePrintPage({
                 <bdi dir="ltr">{record.machineLocation}</bdi>
               </div>
               <div>
-                تاريخ بدء التشغيل: <bdi dir="ltr">{record.startupDate}</bdi>
+                تاريخ بدء التشغيل: <bdi dir="ltr">{formatDisplayDate(record.startupDate)}</bdi>
               </div>
             </div>
 
@@ -166,7 +168,7 @@ export default function CorrectiveMaintenancePrintPage({
                         key={`event-${eventIndex}-start`}
                         className="h-[18px]"
                       >
-                        <td rowSpan={5}>{event?.requestDate ?? ""}</td>
+                        <td rowSpan={5}>{formatDisplayDate(event?.requestDate)}</td>
                         <td rowSpan={5}>{event?.requestReportNumber ?? ""}</td>
                         <td rowSpan={5}>
                           {maintenanceType(
@@ -180,11 +182,11 @@ export default function CorrectiveMaintenancePrintPage({
                           className={`cm-repair-date ${dateRowSpan(repairSlots, 0) === 5 ? "cm-repair-date-final" : ""}`}
                           rowSpan={dateRowSpan(repairSlots, 0)}
                         >
-                          {repairSlots[0].date ||
+                          {formatDisplayDate(repairSlots[0].date ||
                             event?.handoverDate ||
                             (event?.completedAt
-                              ? new Date(event.completedAt).toLocaleDateString()
-                              : "")}
+                              ? event.completedAt
+                              : ""))}
                         </td>
                         <td>
                           {repairSlots[0].from ||
@@ -211,7 +213,7 @@ export default function CorrectiveMaintenancePrintPage({
                                 className={`cm-repair-date ${slotIndex + dateRowSpan(repairSlots, slotIndex) === 5 ? "cm-repair-date-final" : ""}`}
                                 rowSpan={dateRowSpan(repairSlots, slotIndex)}
                               >
-                                {slot.date}
+                                {formatDisplayDate(slot.date)}
                               </td>
                             )}
                             <td>{slot.from}</td>

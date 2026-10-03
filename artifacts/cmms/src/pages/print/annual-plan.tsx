@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { DottedLine, OfficialPrintHeader, PrintLayout, PrintPage } from "./print-layout";
+import { machineSerialMap } from "@/lib/machine-serial";
 
 type AnnualPlan = {
   id: number;
@@ -17,7 +18,7 @@ type AnnualPlan = {
   approvedRdDate: string | null;
   approvedQaName: string | null;
   approvedQaDate: string | null;
-  rows: Array<{ id: number; department: string | null; machineName: string; machineCode: string | null; frequencyMonths: number | null; startDate: string | null; scheduledMonths: number[] }>;
+  rows: Array<{ id: number; machineId: number; department: string | null; machineName: string; machineCode: string | null; frequencyMonths: number | null; startDate: string | null; scheduledMonths: number[] }>;
 };
 
 type AnnualPlanHeader = {
@@ -44,6 +45,7 @@ function formatSignatureDate(date: string | null | undefined) {
 
 export default function AnnualPlanPrintPage({ params }: { params: { year: string; schedule?: string } }) {
   const year = Number(params.year);
+  const departmentFilter = new URLSearchParams(window.location.search).get("department");
   const { data } = useQuery({
     queryKey: ["print-annual-plan", year],
     queryFn: () => apiRequest<AnnualPlan>(`/maintenance-plans/annual/${year}`),
@@ -52,12 +54,20 @@ export default function AnnualPlanPrintPage({ params }: { params: { year: string
     queryKey: ["annual-pm-header", year],
     queryFn: () => apiRequest<AnnualPlanHeader>(`/maintenance-plans/annual/header?year=${year}`),
   });
+  const { data: machines = [] } = useQuery({
+    queryKey: ["annual-print-machine-serials"],
+    queryFn: () => apiRequest<Array<{ id: number; machineNumber: string; machineName: string }>>("/machines"),
+  });
+  const serialByMachineId = machineSerialMap(machines);
   const planId = data?.id ?? 0;
   const { data: signatures = [] } = useQuery({
     queryKey: ["print-annual-plan-signatures", planId],
     queryFn: () => apiRequest<ElectronicSignature[]>(`/signatures?documentType=ANNUAL_PLAN&documentId=${planId}`),
     enabled: planId > 0,
   });
+  const visibleRows = (data?.rows.filter((row) => !departmentFilter || (row.department || "Unassigned") === departmentFilter) ?? [])
+    .sort((a, b) => (serialByMachineId.get(a.machineId) ?? Number.MAX_SAFE_INTEGER)
+      - (serialByMachineId.get(b.machineId) ?? Number.MAX_SAFE_INTEGER));
 
   const approvals = [
     ["Prepared By", "Maintenance Supervisor", data?.preparedByName, data?.preparedByDate, "prepared_by"],
@@ -72,10 +82,10 @@ export default function AnnualPlanPrintPage({ params }: { params: { year: string
     return (
       <PrintLayout title="Machine Schedule - Print">
         <PrintPage>
-          <OfficialPrintHeader title={`${header?.documentName ?? "Preventive Maintenance Plan"}\nFor Year: ${data?.year ?? year}`} documentNumber={header?.documentNumber ?? "FORM-10-1025-0"} effectiveDate={header?.effectiveOrExecutionDate ?? String(year)} />
+          <OfficialPrintHeader title={`${header?.documentName ?? "Preventive Maintenance Plan"}\nFor Year: ${data?.year ?? year}${departmentFilter ? `\nDepartment: ${departmentFilter}` : ""}`} documentNumber={header?.documentNumber ?? "FORM-10-1025-0"} effectiveDate={header?.effectiveOrExecutionDate ?? String(year)} />
           <table className="official-print-table mt-8">
-            <thead><tr><th>Department</th><th>Machine / Code</th><th>Frequency</th><th>Start</th><th>Months</th></tr></thead>
-            <tbody>{data?.rows.map((row) => <tr key={row.id}><td>{row.department ?? ""}</td><td>{row.machineName}<br />{row.machineCode ?? ""}</td><td>{row.frequencyMonths ? `Every ${row.frequencyMonths} months` : ""}</td><td>{row.startDate ?? ""}</td><td>{row.scheduledMonths.join(", ")}</td></tr>)}</tbody>
+            <thead><tr><th className="w-[7%]">No.</th><th>Department</th><th>Machine / Code</th><th>Frequency</th><th>Start</th><th>Months</th></tr></thead>
+            <tbody>{visibleRows.map((row) => <tr key={row.id}><td>{serialByMachineId.get(row.machineId) ?? "—"}</td><td>{row.department ?? ""}</td><td>{row.machineName}<br />{row.machineCode ?? ""}</td><td>{row.frequencyMonths ? `Every ${row.frequencyMonths} months` : ""}</td><td>{row.startDate ?? ""}</td><td>{row.scheduledMonths.join(", ")}</td></tr>)}</tbody>
           </table>
         </PrintPage>
       </PrintLayout>
@@ -96,7 +106,7 @@ export default function AnnualPlanPrintPage({ params }: { params: { year: string
                   <div>Palestine</div>
                 </td>
                 <td className="w-[36%] text-center">
-                  <div>{header?.documentName ?? "Preventive Maintenance Plan"}</div>
+                  <div className="whitespace-nowrap">{header?.documentName ?? "Preventive Maintenance Plan"}</div>
                   <div>For Year: {data?.year ?? year}</div>
                 </td>
                 <td className="w-[30%] text-left">

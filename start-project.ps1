@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Avoid an old server on localhost returning stale errors.
-Get-NetTCPConnection -LocalPort 5001, 5173 -State Listen -ErrorAction SilentlyContinue |
+Get-NetTCPConnection -LocalPort 5004, 5173 -State Listen -ErrorAction SilentlyContinue |
   Select-Object -ExpandProperty OwningProcess -Unique |
   ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
 
@@ -21,10 +21,10 @@ try {
   pnpm.cmd --filter @workspace/api-server run build
   if ($LASTEXITCODE -ne 0) { throw "API build failed; the project was not started." }
 
-  $env:PORT = "5001"
+  $env:PORT = "5004"
   Start-Process -FilePath pnpm.cmd -ArgumentList @("--filter", "@workspace/api-server", "run", "start") -WorkingDirectory $projectRoot -WindowStyle Hidden
   $env:PORT = "5173"
-  $env:API_PORT = "5001"
+  $env:API_PORT = "5004"
   Start-Process -FilePath pnpm.cmd -ArgumentList @("--filter", "@workspace/cmms", "run", "dev") -WorkingDirectory $projectRoot -WindowStyle Hidden
 } finally {
   Pop-Location

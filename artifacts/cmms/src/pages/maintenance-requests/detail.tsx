@@ -448,8 +448,8 @@ export default function MaintenanceRequestDetailPage({ params }: { params: { id:
           <CardContent className="grid gap-4 md:grid-cols-2">
             {!canPreliminaryWork && <p className="md:col-span-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{canFillPreliminary ? "بانتظار اعتماد مشرف القسم وQA وقبول الهندسة قبل فتح نتائج الفحص الأولي للفني." : "لا تملك صلاحية تعبئة نتائج الفحص الأولي. يضيفها المسؤول من صلاحيات طلبات الصيانة."}</p>}
             <div className="md:col-span-2"><Label>Preliminary check results</Label><Textarea value={preliminary} readOnly={!canPreliminaryWork} onChange={(event) => setPreliminary(event.target.value)} /></div>
-            <div><Label>Expected work time From</Label><Input value={workFrom} readOnly={!canPreliminaryWork} onChange={(event) => setWorkFrom(event.target.value)} /></div>
-            <div><Label>Expected work time To</Label><Input value={workTo} readOnly={!canPreliminaryWork} onChange={(event) => setWorkTo(event.target.value)} /></div>
+            <div className="space-y-2"><Label>Expected work time From</Label><Input type="time" step="60" value={workFrom} readOnly={!canPreliminaryWork} onChange={(event) => setWorkFrom(event.target.value)} /></div>
+            <div className="space-y-2"><Label>Expected work time To</Label><Input type="time" step="60" value={workTo} readOnly={!canPreliminaryWork} onChange={(event) => setWorkTo(event.target.value)} /></div>
             <div><Label>Maintenance technician name</Label><Input value={technicianName} readOnly={!canPreliminaryWork} onChange={(event) => setTechnicianName(event.target.value)} /></div>
             <ElectronicSignatureField documentType="MAINTENANCE_REQUEST" documentId={requestId} fieldName="maintenance_technician" label="التوقيع الإلكتروني لفني الصيانة" />
             {data.correctiveEvent?.preliminaryCheckResults && <ElectronicSignatureField documentType="MAINTENANCE_REQUEST" documentId={requestId} fieldName="concerned_section_supervisor" label="التوقيع الإلكتروني لمشرف القسم المعني" />}

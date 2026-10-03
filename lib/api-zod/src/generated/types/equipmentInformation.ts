@@ -36,6 +36,8 @@ export interface EquipmentInformation {
   /** @nullable */
   weightKg?: number | null;
   /** @nullable */
+  weightNote?: string | null;
+  /** @nullable */
   utilitiesPowerSupply?: string | null;
   /** @nullable */
   utilitiesAir?: string | null;

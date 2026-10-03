@@ -3,6 +3,7 @@ type OfficialFormHeaderProps = {
   documentName: string;
   documentNumber: string;
   effectiveOrExecutionDate?: string | null;
+  dateLabel?: string;
   page?: string;
   machineName?: string | null;
   machineNumber?: string | null;
@@ -15,6 +16,7 @@ export function OfficialFormHeader({
   documentName,
   documentNumber,
   effectiveOrExecutionDate,
+  dateLabel = "Effective / Execution Date",
   page = "Page 1 of 1",
   machineName,
   machineNumber,
@@ -32,7 +34,7 @@ export function OfficialFormHeader({
         <div className="p-3 text-center">
           <div className="text-lg font-bold uppercase">{documentName}</div>
           {effectiveOrExecutionDate && (
-            <div className="mt-1 text-xs font-medium">Effective / Execution Date: {effectiveOrExecutionDate}</div>
+            <div className="mt-1 text-xs font-medium">{dateLabel}: {effectiveOrExecutionDate}</div>
           )}
         </div>
         <div className="p-3 text-sm">

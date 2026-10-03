@@ -54,6 +54,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { SignaturePad } from "@/components/signature-pad";
 import { apiRequest } from "@/lib/api";
 import { useLang } from "@/contexts/LanguageContext";
+import { MachineDepartmentAccess } from "@/components/machine-department-access";
 
 // Base schema for both create and edit
 const baseUserSchema = z.object({
@@ -591,6 +592,7 @@ export default function UserForm({ params }: { params?: { id: string } }) {
 
         {isEditing && (
           <div className="lg:col-span-2 space-y-6">
+            <MachineDepartmentAccess userId={userId!} isAdmin={userData?.roleName === "Admin"} departments={departments ?? []} />
             <div className="sticky top-2 z-20 flex justify-end rounded-lg border bg-background/95 p-3 shadow-sm backdrop-blur">
               <Button onClick={savePermissions} disabled={permissionsMutation.isPending}>
                 {permissionsMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

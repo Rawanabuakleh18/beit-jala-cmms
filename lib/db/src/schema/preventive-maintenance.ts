@@ -21,6 +21,16 @@ export const pmHeadersTable = pgTable("pm_headers", {
   procedureFormNumber: text("procedure_form_number").notNull().default("LOG-00-0102"),
   effectiveDate: text("effective_date"),
   department: text("department"),
+  // This is the name printed on this machine's PM record. It starts as the
+  // master machine name but may be edited without changing the master record.
+  machineRecordName: text("machine_record_name"),
+  machineRecordId: text("machine_record_id"),
+  machineRecordLabel: text("machine_record_label"),
+  showServiceArea: boolean("show_service_area").notNull().default(false),
+  serviceAreaMachineNumber: text("service_area_machine_number"),
+  serviceAreaLocation: text("service_area_location"),
+  pmRecordDescription: text("pm_record_description"),
+  pmRecordTitle: text("pm_record_title"),
   columnsPerRecord: integer("columns_per_record").notNull().default(5),
   inspectionColumnsPerPrintPage: integer("inspection_columns_per_print_page").notNull().default(2),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -1,0 +1,15 @@
+{
+  "machineId": 58,
+  "points": [],
+  "records": [
+    {
+      "id": 59,
+      "machine_id": 58,
+      "sequence_number": 1,
+      "previous_record_id": null,
+      "status": "active",
+      "created_at": "2026-09-16T23:39:31.738Z",
+      "updated_at": "2026-09-16T23:39:31.738Z"
+    }
+  ]
+}

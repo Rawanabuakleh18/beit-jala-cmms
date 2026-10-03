@@ -1,0 +1,21 @@
+{
+  "original": [],
+  "extra": [],
+  "header": {
+    "id": 21,
+    "document_type": "EQUIPMENT_INFORMATION",
+    "document_id": 58,
+    "company_name": "Beit Jala Pharmaceutical Co.",
+    "document_name": "Equipment Information Record",
+    "document_number": "FORM-10-0118",
+    "effective_or_execution_date": null,
+    "page_number": 1,
+    "total_pages": 1,
+    "machine_name": null,
+    "machine_number": null,
+    "machine_location": null,
+    "startup_date": null,
+    "created_at": "2026-09-16T20:54:01.829Z",
+    "updated_at": "2026-09-16T20:54:01.829Z"
+  }
+}

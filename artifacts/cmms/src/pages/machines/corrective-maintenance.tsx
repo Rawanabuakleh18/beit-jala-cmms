@@ -40,12 +40,16 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
     documentNumber: "",
     executionDate: "",
     pageCount: "",
+    machineName: "",
+    machineNumber: "",
+    machineLocation: "",
+    startupDate: "",
   });
-  const { data = [] } = useQuery({
+  const { data = [], isLoading, isError, error } = useQuery({
     queryKey: ["machine-cm-record", machineId, historicalRecordId ?? "current"],
     queryFn: async () => {
       if (historicalRecordId) {
-        return apiRequest<CorrectiveMaintenanceRecord[]>(`/machines/${machineId}/corrective-maintenance/history`);
+        return apiRequest<CorrectiveMaintenanceRecord[]>(`/machines/${machineId}/corrective-maintenance/history?includeActive=true`);
       }
       const record = await apiRequest<CorrectiveMaintenanceRecord>(`/machines/${machineId}/corrective-maintenance`);
       return [record];
@@ -55,13 +59,17 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
   const active = historicalRecordId ? data.find((record) => record.id === historicalRecordId) ?? null : data[data.length - 1] ?? null;
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || isEditingHeader) return;
     setHeaderDraft({
       documentNumber: active.documentNumber,
       executionDate: active.executionDate ?? "",
       pageCount: active.pageCount,
+      machineName: active.machineName,
+      machineNumber: active.machineNumber,
+      machineLocation: active.machineLocation ?? "",
+      startupDate: active.startupDate ?? "",
     });
-  }, [active]);
+  }, [active, isEditingHeader]);
 
   const updateHeader = useMutation({
     mutationFn: () => apiRequest<CorrectiveMaintenanceRecord>(`/machines/${machineId}/corrective-maintenance/header`, {
@@ -71,7 +79,13 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
     onSuccess: () => {
       setIsEditingHeader(false);
       queryClient.invalidateQueries({ queryKey: ["machine-cm-record", machineId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/machines"] });
     },
+    onError: (error) => toast({
+      variant: "destructive",
+      title: "تعذر حفظ الهيدر",
+      description: getErrorMessage(error, "تعذر حفظ التعديلات. حاول مرة أخرى."),
+    }),
   });
 
   const updateEvent = useMutation({
@@ -157,6 +171,12 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
         <Button asChild variant="outline"><Link href={`/machines/${machineId}/corrective-maintenance/history`}>Record History</Link></Button>
       </div>
 
+      {isLoading && <Card><CardContent className="p-6 text-muted-foreground">Loading corrective maintenance record...</CardContent></Card>}
+      {isError && <Card><CardContent className="p-6 text-destructive">{getErrorMessage(error, "Could not load the corrective maintenance record.")}</CardContent></Card>}
+      {!isLoading && !isError && isHistorical && !active && (
+        <Card><CardContent className="p-6 text-muted-foreground">The selected corrective maintenance record was not found.</CardContent></Card>
+      )}
+
       {active ? (
         <>
           <Card>
@@ -178,15 +198,15 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
               <div><Label>Execution date</Label><Input type="date" value={isEditingHeader ? headerDraft.executionDate : active.executionDate ?? ""} readOnly={!isEditingHeader} onChange={(event) => setHeaderDraft((current) => ({ ...current, executionDate: event.target.value }))} /></div>
               <div><Label>Page count</Label><Input value={isEditingHeader ? headerDraft.pageCount : active.pageCount} readOnly={!isEditingHeader} onChange={(event) => setHeaderDraft((current) => ({ ...current, pageCount: event.target.value }))} /></div>
               <div><Label>Record sequence</Label><Input value={`#${active.sequenceNumber}`} readOnly /></div>
-              <div><Label>Machine name</Label><Input value={active.machineName} readOnly /></div>
-              <div><Label>Machine number</Label><Input value={active.machineNumber} readOnly /></div>
-              <div><Label>Machine location</Label><Input value={active.machineLocation ?? ""} readOnly /></div>
-              <div><Label>Start-up date</Label><Input value={active.startupDate ?? ""} readOnly /></div>
+              <div><Label>Machine name</Label><Input value={isEditingHeader ? headerDraft.machineName : active.machineName} readOnly={!isEditingHeader} onChange={(event) => setHeaderDraft((current) => ({ ...current, machineName: event.target.value }))} /></div>
+              <div><Label>Machine number</Label><Input value={isEditingHeader ? headerDraft.machineNumber : active.machineNumber} readOnly={!isEditingHeader} onChange={(event) => setHeaderDraft((current) => ({ ...current, machineNumber: event.target.value }))} /></div>
+              <div><Label>Machine location</Label><Input value={isEditingHeader ? headerDraft.machineLocation : active.machineLocation ?? ""} readOnly={!isEditingHeader} onChange={(event) => setHeaderDraft((current) => ({ ...current, machineLocation: event.target.value }))} /></div>
+              <div><Label>Start-up date</Label><Input value={isEditingHeader ? headerDraft.startupDate : active.startupDate ?? ""} readOnly={!isEditingHeader} onChange={(event) => setHeaderDraft((current) => ({ ...current, startupDate: event.target.value }))} /></div>
               {!isHistorical && hasPermission("edit_header_corrective_maintenance") && (
                 <div className="md:col-span-4 flex gap-2">
                   {isEditingHeader ? (
                     <>
-                      <Button type="button" onClick={() => updateHeader.mutate()} disabled={updateHeader.isPending}>
+                      <Button type="button" onClick={() => updateHeader.mutate()} disabled={updateHeader.isPending || !headerDraft.machineNumber.trim()}>
                         <Save className="mr-2 h-4 w-4" />Save Header
                       </Button>
                       <Button type="button" variant="outline" onClick={() => setIsEditingHeader(false)}>
@@ -195,7 +215,18 @@ export default function MachineCorrectiveMaintenancePage({ params }: { params: {
                       <span className="self-center text-sm text-muted-foreground">رقم المستند وتاريخ التنفيذ يُطبّقان على جميع السجلات الحالية والمستقبلية.</span>
                     </>
                   ) : (
-                    <Button type="button" variant="outline" onClick={() => setIsEditingHeader(true)}>
+                    <Button type="button" variant="outline" onClick={() => {
+                      setHeaderDraft({
+                        documentNumber: active.documentNumber,
+                        executionDate: active.executionDate ?? "",
+                        pageCount: active.pageCount,
+                        machineName: active.machineName,
+                        machineNumber: active.machineNumber,
+                        machineLocation: active.machineLocation ?? "",
+                        startupDate: active.startupDate ?? "",
+                      });
+                      setIsEditingHeader(true);
+                    }}>
                       <Pencil className="mr-2 h-4 w-4" />Edit Header
                     </Button>
                   )}

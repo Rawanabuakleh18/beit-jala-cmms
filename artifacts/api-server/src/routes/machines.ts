@@ -14,9 +14,12 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { requireActiveAuth, requirePermission, parseIdParam } from "../lib/auth.js";
-import { syncAutomaticMaintenancePlans } from "./maintenance-plans.js";
+import { syncAutomaticMaintenancePlans, applyMachineScheduleToPlan, applyMachineScheduleToPlanAndFollowingYears } from "./maintenance-plans.js";
+import { additionalEquipmentRouter } from "./additional-equipment-records.js";
+import { machineAccess } from "../lib/machine-access.js";
 
 const router = Router();
+router.use("/:id/equipment-information", additionalEquipmentRouter);
 
 async function syncCurrentAnnualPlan(pmStartDate?: string | null) {
   const [latestPlan] = await db
@@ -105,7 +108,7 @@ router.get("/", requireActiveAuth, requirePermission("view_machines"), async (re
       })
       .from(machinesTable)
       .leftJoin(departmentsTable, eq(machinesTable.departmentId, departmentsTable.id))
-      .where(archived ? isNotNull(machinesTable.deletedAt) : isNull(machinesTable.deletedAt))
+      .where(and(machineAccess(), archived ? isNotNull(machinesTable.deletedAt) : isNull(machinesTable.deletedAt)))
       .orderBy(machinesTable.machineName);
 
     if (search) {
@@ -305,18 +308,34 @@ router.put("/:id", requireActiveAuth, requirePermission("edit_machine"), async (
     if (pmStartDate !== undefined) updateData.pmStartDate = pmStartDate;
 
     const previous = await getMachineWithDept(id);
-    const [updated] = await db
+    const planYear = req.body.applyPmScheduleToPlanYear;
+    if (planYear != null && (!Number.isInteger(planYear) || planYear < 2000 || planYear > 2100 ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(pmStartDate === undefined ? previous?.pmStartDate ?? "" : pmStartDate ?? "") ||
+      !Number.isFinite(Date.parse(`${pmStartDate ?? previous?.pmStartDate}T00:00:00Z`)) ||
+      !Number.isInteger(pmFrequencyMonths === undefined ? previous?.pmFrequencyMonths : pmFrequencyMonths) || (pmFrequencyMonths ?? previous?.pmFrequencyMonths ?? 0) < 1)) {
+      res.status(400).json({ error: "Valid plan year, PM start date and frequency are required" });
+      return;
+    }
+    if (planYear != null && req.session.roleName !== "Admin" && !(req.session.permissions ?? []).includes("edit_annual_maintenance_plan")) {
+      res.status(403).json({ error: "Annual plan editing permission is required" });
+      return;
+    }
+    const updated = await db.transaction(async tx => {
+      const [saved] = await tx
       .update(machinesTable)
       .set(updateData)
       .where(eq(machinesTable.id, id))
       .returning({ id: machinesTable.id });
+      if (saved && planYear != null) await applyMachineScheduleToPlanAndFollowingYears(tx, id, planYear);
+      return saved;
+    });
 
     if (!updated) {
       res.status(404).json({ error: "Machine not found" });
       return;
     }
 
-    if (pmFrequencyMonths !== undefined || pmStartDate !== undefined) {
+    if (req.body.applyPmScheduleToPlanYear === undefined && (pmFrequencyMonths !== undefined || pmStartDate !== undefined)) {
       await syncCurrentAnnualPlan(pmStartDate ?? previous?.pmStartDate);
     }
 
@@ -359,6 +378,52 @@ router.patch("/:id/soft-delete", requireActiveAuth, requirePermission("soft_dele
   } catch (err) { next(err); }
 });
 
+// PATCH /api/machines/:id/restore
+router.patch("/:id/restore", requireActiveAuth, requirePermission("soft_delete_machine"), async (req, res, next) => {
+  try {
+    const id = parseIdParam(req.params.id);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid ID" });
+      return;
+    }
+
+    const previous = await getMachineWithDept(id);
+    if (!previous) {
+      res.status(404).json({ error: "Machine not found" });
+      return;
+    }
+    if (!previous.deletedAt) {
+      res.status(400).json({ error: "Machine is not archived" });
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(machinesTable)
+        .set({ deletedAt: null, updatedAt: new Date() })
+        .where(eq(machinesTable.id, id));
+
+      // Archiving removes the machine from planning. Rebuild its schedule in
+      // every existing annual plan when it is restored.
+      const plans = await tx.select({ year: annualPmPlansTable.year }).from(annualPmPlansTable);
+      if (previous.pmStartDate && previous.pmFrequencyMonths) {
+        for (const plan of plans) await applyMachineScheduleToPlan(tx, id, plan.year);
+      }
+    });
+
+    const machine = await getMachineWithDept(id);
+    await db.insert(auditLogsTable).values({
+      userId: req.session.userId ?? null,
+      action: "machine_restored",
+      entityType: "machine",
+      entityId: id,
+      oldValue: formatMachine(previous),
+      newValue: formatMachine(machine!),
+    });
+    res.json(formatMachine(machine!));
+  } catch (err) { next(err); }
+});
+
 // GET /api/machines/:id/equipment-information
 router.get("/:id/equipment-information/header", requireActiveAuth, requirePermission("view_equipment_information"), async (req, res, next) => {
   try {
@@ -368,13 +433,13 @@ router.get("/:id/equipment-information/header", requireActiveAuth, requirePermis
       res.status(404).json({ error: "Machine not found" });
       return;
     }
-    // FORM-10-0118 has one controlled header shared by every equipment record.
-    const [existing] = await db.select().from(formHeadersTable).where(and(eq(formHeadersTable.documentType, "EQUIPMENT_INFORMATION"), eq(formHeadersTable.documentId, 0)));
+    // Each machine owns its equipment-record header, including its number and effective date.
+    const [existing] = await db.select().from(formHeadersTable).where(and(eq(formHeadersTable.documentType, "EQUIPMENT_INFORMATION"), eq(formHeadersTable.documentId, machineId)));
     if (existing) {
       res.json(existing);
       return;
     }
-    const [created] = await db.insert(formHeadersTable).values({ documentType: "EQUIPMENT_INFORMATION", documentId: 0, documentName: "Equipment Information Record", documentNumber: "FORM-10-0118", effectiveOrExecutionDate: null }).returning();
+    const [created] = await db.insert(formHeadersTable).values({ documentType: "EQUIPMENT_INFORMATION", documentId: machineId, documentName: "Equipment Information Record", documentNumber: "FORM-10-0118", effectiveOrExecutionDate: null }).returning();
     res.json(created);
   } catch (err) { next(err); }
 });
@@ -432,10 +497,10 @@ router.put("/:id/equipment-information/header", requireActiveAuth, requirePermis
       totalPages: Math.max(1, Number(body.totalPages ?? 1)),
       updatedAt: new Date(),
     };
-    const [existing] = await db.select().from(formHeadersTable).where(and(eq(formHeadersTable.documentType, "EQUIPMENT_INFORMATION"), eq(formHeadersTable.documentId, 0)));
+    const [existing] = await db.select().from(formHeadersTable).where(and(eq(formHeadersTable.documentType, "EQUIPMENT_INFORMATION"), eq(formHeadersTable.documentId, machineId)));
     const [saved] = existing
       ? await db.update(formHeadersTable).set(values).where(eq(formHeadersTable.id, existing.id)).returning()
-      : await db.insert(formHeadersTable).values({ documentType: "EQUIPMENT_INFORMATION", documentId: 0, ...values }).returning();
+      : await db.insert(formHeadersTable).values({ documentType: "EQUIPMENT_INFORMATION", documentId: machineId, ...values }).returning();
     res.json(saved);
   } catch (err) { next(err); }
 });
@@ -467,6 +532,29 @@ router.get("/:id/equipment-information", requireActiveAuth, requirePermission("v
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
     });
+  } catch (err) { next(err); }
+});
+
+// Save the free-text weight detail separately from the numeric weight. This
+// keeps a multi-line description from being overwritten by a general form save.
+router.put("/:id/equipment-information/weight-note", requireActiveAuth, requirePermission("edit_equipment_information"), async (req, res, next) => {
+  try {
+    const id = parseIdParam(req.params.id);
+    if (isNaN(id) || !(await getMachineWithDept(id))) {
+      res.status(404).json({ error: "Machine not found" });
+      return;
+    }
+    const note = typeof req.body?.weightNote === "string" ? req.body.weightNote : "";
+    const [saved] = await db
+      .update(equipmentInformationTable)
+      .set({ weightNote: note || null, updatedAt: new Date() })
+      .where(eq(equipmentInformationTable.machineId, id))
+      .returning({ weightNote: equipmentInformationTable.weightNote });
+    if (!saved) {
+      res.status(404).json({ error: "Equipment information not found" });
+      return;
+    }
+    res.json(saved);
   } catch (err) { next(err); }
 });
 

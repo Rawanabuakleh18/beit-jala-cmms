@@ -1,0 +1,16 @@
+{
+  "id": 54,
+  "machine_id": 56,
+  "procedure_form_number": "LOG-00-0102",
+  "effective_date": null,
+  "department": "Production",
+  "columns_per_record": 5,
+  "created_at": "2026-09-16T20:30:17.347Z",
+  "updated_at": "2026-09-16T20:30:17.347Z",
+  "inspection_columns_per_print_page": 2,
+  "machine_record_name": "ROTARY TABLET PRESS",
+  "machine_record_id": "PDM-01-056",
+  "machine_record_label": null,
+  "pm_record_description": "سجل نشاطات الصيانة الوقائية لجهاز",
+  "pm_record_title": "سجل نشاطات الصيانة الوقائية لجهاز\nROTARY TABLET PRESS (PDM-01-056)"
+}

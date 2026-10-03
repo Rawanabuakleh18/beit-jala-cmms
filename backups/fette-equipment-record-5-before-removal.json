@@ -1,0 +1,22 @@
+{
+  "id": 4,
+  "machine_id": 54,
+  "record_number": 5,
+  "data": {
+    "weightKg": null,
+    "nameOfEquipment": "Tablet Press Machine - Fette",
+    "dimensionDepthCm": null,
+    "dimensionWidthCm": null,
+    "dimensionHeightCm": null,
+    "identificationNumber": "PDM-01-043"
+  },
+  "header": {
+    "pageNumber": 1,
+    "totalPages": 1,
+    "companyName": "Beit Jala Pharmaceutical Co.",
+    "documentName": "Equipment Information Record",
+    "documentNumber": "FORM-10-0118-1",
+    "effectiveOrExecutionDate": "2010-06-22"
+  },
+  "updated_at": "2026-09-15T21:12:09.314Z"
+}

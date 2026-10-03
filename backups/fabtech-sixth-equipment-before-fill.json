@@ -1,0 +1,22 @@
+{
+  "id": 9,
+  "machine_id": 58,
+  "record_number": 6,
+  "data": {
+    "weightKg": null,
+    "nameOfEquipment": "Granulation Line 200 Kg/ FabTech",
+    "dimensionDepthCm": null,
+    "dimensionWidthCm": null,
+    "dimensionHeightCm": null,
+    "identificationNumber": "PDM-01-097"
+  },
+  "header": {
+    "pageNumber": 1,
+    "totalPages": 1,
+    "companyName": "Beit Jala Pharmaceutical Co.",
+    "documentName": "Equipment Information Record",
+    "documentNumber": "FORM-10-0118",
+    "effectiveOrExecutionDate": null
+  },
+  "updated_at": "2026-09-16T20:56:05.646Z"
+}

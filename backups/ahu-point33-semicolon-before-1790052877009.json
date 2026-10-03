@@ -1,0 +1,487 @@
+{
+  "machines": [
+    {
+      "id": 7,
+      "machine_number": "AC 3/4"
+    },
+    {
+      "id": 19,
+      "machine_number": "AHU-1"
+    },
+    {
+      "id": 20,
+      "machine_number": "AC 3/6 B"
+    },
+    {
+      "id": 21,
+      "machine_number": "AC 4/5 C"
+    },
+    {
+      "id": 22,
+      "machine_number": "AC 4/5 B"
+    },
+    {
+      "id": 24,
+      "machine_number": "AC 4/5 A"
+    },
+    {
+      "id": 25,
+      "machine_number": "AC 3/6 A"
+    },
+    {
+      "id": 26,
+      "machine_number": "AC 2/5"
+    },
+    {
+      "id": 59,
+      "machine_number": "AHU-501"
+    },
+    {
+      "id": 60,
+      "machine_number": "AHU-301"
+    },
+    {
+      "id": 61,
+      "machine_number": "AHU-401"
+    },
+    {
+      "id": 62,
+      "machine_number": "AC 1/2"
+    },
+    {
+      "id": 63,
+      "machine_number": "AHU-101"
+    },
+    {
+      "id": 64,
+      "machine_number": "AC 4/4"
+    },
+    {
+      "id": 65,
+      "machine_number": "AC 4/3"
+    },
+    {
+      "id": 66,
+      "machine_number": "V 2/1"
+    },
+    {
+      "id": 67,
+      "machine_number": "Pack 1"
+    },
+    {
+      "id": 68,
+      "machine_number": "AC 4/2"
+    },
+    {
+      "id": 69,
+      "machine_number": "AC 3/8"
+    },
+    {
+      "id": 70,
+      "machine_number": "AC 3/7"
+    },
+    {
+      "id": 71,
+      "machine_number": "AC 3/1"
+    },
+    {
+      "id": 72,
+      "machine_number": "AC 2/6"
+    },
+    {
+      "id": 73,
+      "machine_number": "AC 2/6 A"
+    },
+    {
+      "id": 74,
+      "machine_number": "AHU-201"
+    },
+    {
+      "id": 76,
+      "machine_number": "V 1/1"
+    },
+    {
+      "id": 77,
+      "machine_number": "AC 1/1 A"
+    },
+    {
+      "id": 78,
+      "machine_number": "AC 1/1 B"
+    },
+    {
+      "id": 79,
+      "machine_number": "AC 1/1"
+    },
+    {
+      "id": 80,
+      "machine_number": "AC 1/3"
+    },
+    {
+      "id": 81,
+      "machine_number": "AC 1/4"
+    },
+    {
+      "id": 82,
+      "machine_number": "AC 1/5"
+    },
+    {
+      "id": 83,
+      "machine_number": "AC 1/6"
+    }
+  ],
+  "points": [
+    {
+      "id": 100,
+      "machine_id": 7,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-08-16T21:34:29.508Z",
+      "updated_at": "2026-08-17T04:34:59.497Z"
+    },
+    {
+      "id": 240,
+      "machine_id": 19,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-08-17T19:28:17.658Z",
+      "updated_at": "2026-08-17T19:28:17.658Z"
+    },
+    {
+      "id": 275,
+      "machine_id": 20,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-08-17T19:47:17.998Z",
+      "updated_at": "2026-08-17T19:47:17.998Z"
+    },
+    {
+      "id": 310,
+      "machine_id": 21,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-08-17T19:58:19.349Z",
+      "updated_at": "2026-08-17T19:58:19.349Z"
+    },
+    {
+      "id": 345,
+      "machine_id": 22,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-08-17T20:05:46.303Z",
+      "updated_at": "2026-08-17T20:05:46.303Z"
+    },
+    {
+      "id": 415,
+      "machine_id": 24,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-08-17T20:16:03.252Z",
+      "updated_at": "2026-08-17T20:16:03.252Z"
+    },
+    {
+      "id": 450,
+      "machine_id": 25,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-08-17T20:25:17.238Z",
+      "updated_at": "2026-08-17T20:25:17.238Z"
+    },
+    {
+      "id": 485,
+      "machine_id": 26,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-08-17T20:28:48.507Z",
+      "updated_at": "2026-08-17T20:28:48.507Z"
+    },
+    {
+      "id": 1274,
+      "machine_id": 59,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T20:36:22.245Z",
+      "updated_at": "2026-09-20T20:36:22.245Z"
+    },
+    {
+      "id": 1344,
+      "machine_id": 60,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T20:36:22.245Z",
+      "updated_at": "2026-09-20T20:36:22.245Z"
+    },
+    {
+      "id": 1309,
+      "machine_id": 61,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T20:36:22.245Z",
+      "updated_at": "2026-09-20T20:36:22.245Z"
+    },
+    {
+      "id": 889,
+      "machine_id": 62,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T00:28:48.320Z",
+      "updated_at": "2026-09-20T00:28:48.320Z"
+    },
+    {
+      "id": 854,
+      "machine_id": 63,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T00:28:48.320Z",
+      "updated_at": "2026-09-20T00:28:48.320Z"
+    },
+    {
+      "id": 924,
+      "machine_id": 64,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T00:28:48.320Z",
+      "updated_at": "2026-09-20T00:28:48.320Z"
+    },
+    {
+      "id": 959,
+      "machine_id": 65,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T00:28:48.320Z",
+      "updated_at": "2026-09-20T00:28:48.320Z"
+    },
+    {
+      "id": 994,
+      "machine_id": 66,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T00:49:09.791Z",
+      "updated_at": "2026-09-20T00:49:09.791Z"
+    },
+    {
+      "id": 1029,
+      "machine_id": 67,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T01:00:21.688Z",
+      "updated_at": "2026-09-20T01:00:21.688Z"
+    },
+    {
+      "id": 1064,
+      "machine_id": 68,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T19:05:15.398Z",
+      "updated_at": "2026-09-20T19:05:15.398Z"
+    },
+    {
+      "id": 1099,
+      "machine_id": 69,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T19:09:02.423Z",
+      "updated_at": "2026-09-20T19:09:02.423Z"
+    },
+    {
+      "id": 1134,
+      "machine_id": 70,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T19:13:29.969Z",
+      "updated_at": "2026-09-20T19:13:29.969Z"
+    },
+    {
+      "id": 1169,
+      "machine_id": 71,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T19:23:45.513Z",
+      "updated_at": "2026-09-20T19:23:45.513Z"
+    },
+    {
+      "id": 1204,
+      "machine_id": 72,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T19:29:50.907Z",
+      "updated_at": "2026-09-20T19:29:50.907Z"
+    },
+    {
+      "id": 1239,
+      "machine_id": 73,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T19:36:39.773Z",
+      "updated_at": "2026-09-20T19:36:39.773Z"
+    },
+    {
+      "id": 1379,
+      "machine_id": 74,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T20:46:37.838Z",
+      "updated_at": "2026-09-20T20:46:37.838Z"
+    },
+    {
+      "id": 1414,
+      "machine_id": 76,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T21:05:52.026Z",
+      "updated_at": "2026-09-20T21:05:52.026Z"
+    },
+    {
+      "id": 1449,
+      "machine_id": 77,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T21:21:40.196Z",
+      "updated_at": "2026-09-20T21:21:40.196Z"
+    },
+    {
+      "id": 1484,
+      "machine_id": 78,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T21:36:01.420Z",
+      "updated_at": "2026-09-20T21:36:01.420Z"
+    },
+    {
+      "id": 1519,
+      "machine_id": 79,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T21:42:13.032Z",
+      "updated_at": "2026-09-20T21:42:13.032Z"
+    },
+    {
+      "id": 1554,
+      "machine_id": 80,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T21:47:58.083Z",
+      "updated_at": "2026-09-20T21:47:58.083Z"
+    },
+    {
+      "id": 1589,
+      "machine_id": 81,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T23:30:59.918Z",
+      "updated_at": "2026-09-20T23:30:59.918Z"
+    },
+    {
+      "id": 1624,
+      "machine_id": 82,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T23:44:56.184Z",
+      "updated_at": "2026-09-20T23:44:56.184Z"
+    },
+    {
+      "id": 1659,
+      "machine_id": 83,
+      "point_text": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "result_type": "text",
+      "sort_order": 33,
+      "is_active": true,
+      "deactivated_at": null,
+      "created_at": "2026-09-20T23:55:37.233Z",
+      "updated_at": "2026-09-20T23:55:37.233Z"
+    }
+  ],
+  "snapshots": []
+}

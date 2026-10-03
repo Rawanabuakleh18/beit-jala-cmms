@@ -8,7 +8,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Edit, FileText, Settings2, Wrench, History, AlertCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, ArchiveRestore, Edit, FileText, Settings2, Wrench, History, AlertCircle, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api";
@@ -42,7 +42,7 @@ function historyDetails(entry: MachineHistoryEntry) {
 
 export default function MachineProfile({ params }: { params: { id: string } }) {
   const machineId = parseInt(params.id, 10);
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const canViewEquipment = hasPermission("view_equipment_information");
   const canViewPm = hasPermission("view_pm_records") || hasPermission("fill_pm_record");
   const canViewCm = hasPermission("view_corrective_maintenance");
@@ -79,6 +79,20 @@ export default function MachineProfile({ params }: { params: { id: string } }) {
       setLocation("/machines");
     },
   });
+  const restoreMachine = useMutation({
+    mutationFn: () => apiRequest(`/machines/${machineId}/restore`, { method: "PATCH" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/machines"] });
+      setLocation("/machines");
+    },
+  });
+  const permanentlyDeleteMachine = useMutation({
+    mutationFn: () => apiRequest(`/machines/${machineId}/permanent`, { method: "DELETE" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/machines"] });
+      setLocation("/machines");
+    },
+  });
 
   if (isLoading) {
     return (
@@ -107,7 +121,12 @@ export default function MachineProfile({ params }: { params: { id: string } }) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">
         <AlertCircle className="h-12 w-12 text-destructive opacity-50" />
-        <h2 className="text-2xl font-bold tracking-tight">Machine Not Found</h2>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" asChild aria-label="Return to Machines" title="Return to Machines">
+            <Link href="/machines"><ArrowLeft className="h-5 w-5" /></Link>
+          </Button>
+          <h2 className="text-2xl font-bold tracking-tight">Machine Not Found</h2>
+        </div>
         <p className="text-muted-foreground">The requested machine could not be loaded.</p>
         <Button asChild variant="outline">
           <Link href="/machines">Return to Machines</Link>
@@ -159,12 +178,12 @@ export default function MachineProfile({ params }: { params: { id: string } }) {
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight">{machine.machineName}</h1>
-            {getStatusBadge(machine.status)}
+            {machine.deletedAt ? <Badge variant="secondary" className="px-3 py-1 text-sm">Archived</Badge> : getStatusBadge(machine.status)}
           </div>
           <p className="text-muted-foreground font-mono mt-1">ID: {machine.machineNumber}</p>
         </div>
         
-        {hasPermission("edit_machine") && (
+        {!machine.deletedAt && hasPermission("edit_machine") && (
           <Button asChild variant="outline" className="shadow-sm">
             <Link href={`/machines/${machine.id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
@@ -172,7 +191,7 @@ export default function MachineProfile({ params }: { params: { id: string } }) {
             </Link>
           </Button>
         )}
-        {hasPermission("soft_delete_machine") && (
+        {!machine.deletedAt && hasPermission("soft_delete_machine") && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" className="shadow-sm">
@@ -195,6 +214,40 @@ export default function MachineProfile({ params }: { params: { id: string } }) {
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   {softDeleteMachine.isPending ? "Deleting…" : "Delete Machine"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+        {machine.deletedAt && hasPermission("soft_delete_machine") && (
+          <Button variant="outline" className="shadow-sm" disabled={restoreMachine.isPending} onClick={() => restoreMachine.mutate()}>
+            <ArchiveRestore className="mr-2 h-4 w-4" />
+            {restoreMachine.isPending ? "Restoring…" : "Restore Machine"}
+          </Button>
+        )}
+        {machine.deletedAt && user?.roleName === "Admin" && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="shadow-sm">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Permanently
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Permanently delete this machine?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete {machine.machineName} ({machine.machineNumber}) and all of its records. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => permanentlyDeleteMachine.mutate()}
+                  disabled={permanentlyDeleteMachine.isPending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {permanentlyDeleteMachine.isPending ? "Deleting…" : "Delete Permanently"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

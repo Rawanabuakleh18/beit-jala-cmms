@@ -1,0 +1,66 @@
+[
+  {
+    "machine_id": 51,
+    "machine_number": "PDM-01-032",
+    "machine_name": "Fluidized Bed Mixer Granulator (FBD)",
+    "old_location": "production",
+    "corrective_record_id": 29,
+    "new_location": "الانتاج / الحبوب"
+  },
+  {
+    "machine_id": 54,
+    "machine_number": "PDM-01-043",
+    "machine_name": "Tablet Press Machine - Fette",
+    "old_location": "production",
+    "corrective_record_id": 26,
+    "new_location": "الانتاج / الحبوب"
+  },
+  {
+    "machine_id": 56,
+    "machine_number": "PDM-01-056",
+    "machine_name": "ROTARY TABLET PRESS",
+    "old_location": "production",
+    "corrective_record_id": 16,
+    "new_location": "الانتاج / الحبوب"
+  },
+  {
+    "machine_id": 58,
+    "machine_number": "PDM-01-097",
+    "machine_name": "Granulation Line 200 Kg/ FabTech",
+    "old_location": "production",
+    "corrective_record_id": 30,
+    "new_location": "قسم الحبوب"
+  },
+  {
+    "machine_id": 62,
+    "machine_number": "AC 1/2",
+    "machine_name": "Air Handling Unit (Fresh Air)",
+    "old_location": "Engineering and Maintenance",
+    "corrective_record_id": 23,
+    "new_location": "سطح غرف الكمبرسورات"
+  },
+  {
+    "machine_id": 77,
+    "machine_number": "AC 1/1 A",
+    "machine_name": "Air Handling Unit",
+    "old_location": "Engineering and Maintenance",
+    "corrective_record_id": 21,
+    "new_location": "على سطح مبنى مكاتب الانتاج"
+  },
+  {
+    "machine_id": 79,
+    "machine_number": "AC 1/1",
+    "machine_name": "Air Handling Unit",
+    "old_location": "Engineering and Maintenance",
+    "corrective_record_id": 20,
+    "new_location": "الهندسة"
+  },
+  {
+    "machine_id": 80,
+    "machine_number": "AC 1/3",
+    "machine_name": "Air Handling Unit",
+    "old_location": "Engineering and Maintenance",
+    "corrective_record_id": 18,
+    "new_location": "منطقة السدة"
+  }
+]

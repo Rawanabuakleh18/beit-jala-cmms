@@ -24,6 +24,7 @@ export interface EquipmentInformationInput {
   dimensionDepthCm?: number | null;
   /** @nullable */
   weightKg?: number | null;
+  weightNote?: string;
   utilitiesPowerSupply?: string;
   utilitiesAir?: string;
   utilitiesWater?: string;

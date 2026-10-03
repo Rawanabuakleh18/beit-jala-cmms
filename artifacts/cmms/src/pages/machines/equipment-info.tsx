@@ -1,12 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAuth } from "../../contexts/AuthContext";
 import { 
   useGetMachine,
-  useGetEquipmentInformation,
-  useUpsertEquipmentInformation,
   getGetMachineQueryKey,
-  getGetEquipmentInformationQueryKey
+  type EquipmentInformation,
 } from "@workspace/api-client-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error-message";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { hasPowerAndAirUtilities, hasRollSizeUtility, hasTabletPressUtilities, hasRotaryTabletPressUtilities, hasProductContainerCapacity, hasPowlCapacity, hasBlenderRpm, hasLifterCapacity, hasCoMillCapacity, hasWaterConnection } from "@/lib/equipment-record-overrides";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +34,12 @@ import { ElectronicSignatureField } from "@/components/electronic-signature-fiel
 
 type EquipmentHeader = { companyName: string; documentName: string; documentNumber: string; effectiveOrExecutionDate: string | null; pageNumber: number; totalPages: number };
 
+function formatDisplayedDate(value: string | null | undefined) {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  return match ? `${Number(match[3])}/${Number(match[2])}/${match[1]}` : value;
+}
+
 const equipmentInfoSchema = z.object({
   nameOfEquipment: z.string().optional(),
   modelNumber: z.string().optional(),
@@ -48,11 +53,12 @@ const equipmentInfoSchema = z.object({
   manufacturingCompanyName: z.string().optional(),
   manufacturingCompanyAddress: z.string().optional(),
   
-  dimensionWidthCm: z.coerce.number().optional().nullable(),
-  dimensionHeightCm: z.coerce.number().optional().nullable(),
-  dimensionDepthCm: z.coerce.number().optional().nullable(),
+  dimensionWidthCm: z.preprocess((value) => value === "" || value == null ? null : Number(value), z.number().nullable()).optional(),
+  dimensionHeightCm: z.preprocess((value) => value === "" || value == null ? null : Number(value), z.number().nullable()).optional(),
+  dimensionDepthCm: z.preprocess((value) => value === "" || value == null ? null : Number(value), z.number().nullable()).optional(),
   dimensionsNote: z.string().optional(),
-  weightKg: z.coerce.number().optional().nullable(),
+  weightKg: z.string().optional(),
+  weightNote: z.string().optional(),
   
   utilitiesPowerSupply: z.string().optional(),
   utilitiesAir: z.string().optional(),
@@ -71,9 +77,29 @@ const equipmentInfoSchema = z.object({
 });
 
 type EquipmentInfoValues = z.infer<typeof equipmentInfoSchema>;
+type EquipmentInfoPayload = Omit<EquipmentInfoValues, "dimensionWidthCm" | "dimensionHeightCm" | "dimensionDepthCm" | "weightKg"> & {
+  dimensionWidthCm: number | null;
+  dimensionHeightCm: number | null;
+  dimensionDepthCm: number | null;
+  weightKg: number | null;
+};
 
 export default function EquipmentInformationForm({ params }: { params: { id: string } }) {
+  const [recordNumber, setRecordNumber] = useState(1);
+  const { data: records = [{ recordNumber: 1 }] } = useQuery({
+    queryKey: ["equipment-records", params.id],
+    queryFn: () => apiRequest<Array<{ recordNumber: number }>>(`/machines/${params.id}/equipment-information/records`),
+  });
+  const activeRecord = records.some(record => record.recordNumber === recordNumber) ? recordNumber : 1;
+  return <EquipmentRecordForm key={`${params.id}-${activeRecord}`} params={params} recordNumber={activeRecord} records={records} onSelectRecord={setRecordNumber} />;
+}
+
+function EquipmentRecordForm({ params, recordNumber, records, onSelectRecord }: {
+  params: { id: string }; recordNumber: number; records: Array<{ recordNumber: number }>; onSelectRecord: (record: number) => void;
+}) {
   const machineId = parseInt(params.id, 10);
+  const recordQuery = recordNumber === 1 ? "" : `?record=${recordNumber}`;
+  const signatureField = (field: string) => recordNumber === 1 ? field : `${field}_${recordNumber}`;
   const { hasPermission } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -81,46 +107,56 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
   const canEdit = hasPermission("edit_equipment_information");
   const canEditHeader = hasPermission("edit_header_equipment_information");
   const [headerForm, setHeaderForm] = useState<EquipmentHeader | null>(null);
+  const [dimensionsNoteDraft, setDimensionsNoteDraft] = useState("");
+  const [weightDraft, setWeightDraft] = useState("");
 
   const { data: machine, isLoading: isLoadingMachine } = useGetMachine(machineId, {
     query: { enabled: !!machineId, queryKey: getGetMachineQueryKey(machineId) }
   });
 
-  const { data: equipInfo, isLoading: isLoadingInfo } = useGetEquipmentInformation(machineId, {
-    // A new machine legitimately has no equipment-information row yet. The API
-    // returns 404 in that case; retrying it several times only delays the empty
-    // form from opening.
-    query: {
-      enabled: !!machineId,
-      queryKey: getGetEquipmentInformationQueryKey(machineId),
-      retry: false,
-    }
+  const equipmentInfoQueryKey = ["equipment-information", machineId, recordNumber] as const;
+  const { data: equipInfo, isLoading: isLoadingInfo, isFetched: isEquipmentInfoFetched } = useQuery({
+    queryKey: equipmentInfoQueryKey,
+    queryFn: () => apiRequest<EquipmentInformation>(`/machines/${machineId}/equipment-information${recordQuery}`),
+    enabled: !!machineId,
+    retry: false,
   });
-  const equipmentHeaderQueryKey = ["equipment-header", machineId] as const;
+  const equipmentHeaderQueryKey = ["equipment-header", machineId, recordNumber] as const;
   const { data: equipmentHeader } = useQuery({
     queryKey: equipmentHeaderQueryKey,
-    queryFn: () => apiRequest<EquipmentHeader>(`/machines/${machineId}/equipment-information/header`),
+    queryFn: () => apiRequest<EquipmentHeader>(`/machines/${machineId}/equipment-information/header${recordQuery}`),
     enabled: !!machineId,
     staleTime: 5 * 60 * 1000,
   });
   useEffect(() => { if (equipmentHeader) setHeaderForm(equipmentHeader); }, [equipmentHeader]);
   const saveHeader = useMutation({
-    mutationFn: () => apiRequest<EquipmentHeader>(`/machines/${machineId}/equipment-information/header`, { method: "PUT", body: JSON.stringify(headerForm) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: equipmentHeaderQueryKey }); toast({ title: "Header Saved", description: "The header was updated for all equipment information records." }); },
+    mutationFn: () => apiRequest<EquipmentHeader>(`/machines/${machineId}/equipment-information/header${recordQuery}`, { method: "PUT", body: JSON.stringify(headerForm) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: equipmentHeaderQueryKey }); toast({ title: "Header Saved", description: "The header was updated for this machine only." }); },
     onError: (error) => toast({ variant: "destructive", title: "Header save failed", description: getErrorMessage(error, "Could not save header.") }),
   });
 
-  const upsertMutation = useUpsertEquipmentInformation();
+  const upsertMutation = useMutation({
+    mutationFn: (data: Partial<EquipmentInfoPayload>) =>
+      apiRequest<EquipmentInformation>(`/machines/${machineId}/equipment-information${recordQuery}`, { method: "PUT", body: JSON.stringify(data) }),
+  });
 
   const form = useForm<EquipmentInfoValues>({
     resolver: zodResolver(equipmentInfoSchema),
     defaultValues: {},
   });
+  const initializedMachineId = useRef<number | null>(null);
 
   useEffect(() => {
+    // Load a machine's saved values once.  Do not reset the form when a
+    // background query refetches, otherwise notes being typed are lost before
+    // the user can save them.
+    if (!machine || !isEquipmentInfoFetched || initializedMachineId.current === machineId) return;
     if (equipInfo) {
       form.reset({
-        nameOfEquipment: equipInfo.nameOfEquipment || "",
+        // The master machine details provide the initial values only.  Once a
+        // value is saved in this record, it remains an independent editable
+        // copy and never writes back to Edit Details.
+        nameOfEquipment: equipInfo.nameOfEquipment || machine?.machineName || "",
         modelNumber: equipInfo.modelNumber || "",
         serialNumber: equipInfo.serialNumber || "",
         identificationNumber: equipInfo.identificationNumber || machine?.machineNumber || "",
@@ -136,7 +172,8 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
         dimensionHeightCm: equipInfo.dimensionHeightCm,
         dimensionDepthCm: equipInfo.dimensionDepthCm,
         dimensionsNote: equipInfo.dimensionsNote || "",
-        weightKg: equipInfo.weightKg,
+        weightKg: equipInfo.weightKg === null || equipInfo.weightKg === undefined ? "" : String(equipInfo.weightKg),
+        weightNote: equipInfo.weightNote || "",
         
         utilitiesPowerSupply: equipInfo.utilitiesPowerSupply || "",
         utilitiesAir: equipInfo.utilitiesAir || "",
@@ -153,29 +190,48 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
         approvedByName: equipInfo.approvedByName || "",
         approvedByDate: equipInfo.approvedByDate ? equipInfo.approvedByDate.split('T')[0] : "",
       });
+      setDimensionsNoteDraft(equipInfo.dimensionsNote || "");
+      setWeightDraft(equipInfo.weightKg === null || equipInfo.weightKg === undefined ? "" : String(equipInfo.weightKg));
     } else if (machine) {
       form.reset({
         nameOfEquipment: machine.machineName,
         identificationNumber: machine.machineNumber,
       });
+      setDimensionsNoteDraft("");
+      setWeightDraft("");
     }
-  }, [equipInfo, machine, form]);
+    initializedMachineId.current = machineId;
+  }, [equipInfo, isEquipmentInfoFetched, machine, machineId, form]);
 
   const onSubmit = (values: EquipmentInfoValues) => {
     // Nullify empty numeric fields
-    const payload = {
+    const enteredWeight = weightDraft.trim();
+    const parsedWeight = Number.parseFloat(enteredWeight);
+    const savedDimension = (value: number | null | undefined) =>
+      typeof value === "number" && Number.isFinite(value) && value !== 0 ? value : null;
+    const completePayload: EquipmentInfoPayload = {
       ...values,
-      dimensionWidthCm: values.dimensionWidthCm || null,
-      dimensionHeightCm: values.dimensionHeightCm || null,
-      dimensionDepthCm: values.dimensionDepthCm || null,
-      weightKg: values.weightKg || null,
+      dimensionWidthCm: savedDimension(values.dimensionWidthCm),
+      dimensionHeightCm: savedDimension(values.dimensionHeightCm),
+      dimensionDepthCm: savedDimension(values.dimensionDepthCm),
+      weightKg: enteredWeight && Number.isFinite(parsedWeight) ? parsedWeight : null,
+      dimensionsNote: dimensionsNoteDraft,
     };
+    const payload: Partial<EquipmentInfoPayload> = {};
+    for (const key of Object.keys(form.formState.dirtyFields) as Array<keyof EquipmentInfoPayload>) {
+      payload[key] = completePayload[key] as never;
+    }
+    if (dimensionsNoteDraft !== (equipInfo?.dimensionsNote || "")) payload.dimensionsNote = dimensionsNoteDraft;
+    if (weightDraft !== (equipInfo?.weightKg == null ? "" : String(equipInfo.weightKg))) payload.weightKg = completePayload.weightKg;
 
     upsertMutation.mutate(
-      { id: machineId, data: payload },
+      payload,
       {
         onSuccess: (data) => {
-          queryClient.invalidateQueries({ queryKey: getGetEquipmentInformationQueryKey(machineId) });
+          queryClient.setQueryData(equipmentInfoQueryKey, data);
+          form.reset(values);
+          setDimensionsNoteDraft(data.dimensionsNote || "");
+          setWeightDraft(data.weightKg == null ? "" : String(data.weightKg));
           toast({
             title: "Record Saved",
             description: "Equipment Information Record updated successfully.",
@@ -225,7 +281,7 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
 
         <div className="flex gap-2">
           <Button asChild variant="outline">
-            <Link href={`/print/equipment-information/${machineId}`}>Official Print</Link>
+            <Link href={`/print/equipment-information/${machineId}${recordQuery}`}>Official Print</Link>
           </Button>
 
           {canEdit && (
@@ -246,6 +302,18 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
         </div>
       </div>
 
+      {records.length > 1 && <label className="flex items-center gap-3 rounded-md border p-3" dir="rtl">
+        السجل التعريفي
+        <select className="rounded border bg-background px-3 py-2" value={recordNumber}
+          disabled={upsertMutation.isPending || saveHeader.isPending}
+          onChange={event => {
+            const hasChanges = form.formState.isDirty || dimensionsNoteDraft !== (equipInfo?.dimensionsNote || "") || weightDraft !== (equipInfo?.weightKg == null ? "" : String(equipInfo.weightKg)) || JSON.stringify(headerForm) !== JSON.stringify(equipmentHeader);
+            if (!hasChanges || window.confirm("يوجد تعديلات غير محفوظة. هل تريد الانتقال إلى سجل آخر؟")) onSelectRecord(Number(event.target.value));
+          }}>
+          {records.map(record => <option key={record.recordNumber} value={record.recordNumber}>السجل {record.recordNumber}{record.recordNumber === 1 && !["PDM-01-043", "PDM-01-097", "PDM-08-081", "PDM-08-081 A"].includes(machine?.machineNumber?.trim() ?? "") ? " — الأصلي" : ""}</option>)}
+        </select>
+      </label>}
+
       {!canEdit && (
         <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 p-4 rounded-lg flex items-center gap-3">
           <AlertCircle className="h-5 w-5" />
@@ -259,7 +327,8 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
           companyName={equipmentHeader?.companyName}
           documentName={equipmentHeader?.documentName ?? "Equipment Information Record"}
           documentNumber={equipmentHeader?.documentNumber ?? "FORM-10-0118"}
-          effectiveOrExecutionDate={(equipmentHeader?.effectiveOrExecutionDate ?? form.watch("preparedByDate")) || null}
+          effectiveOrExecutionDate={formatDisplayedDate(equipmentHeader?.effectiveOrExecutionDate ?? form.watch("preparedByDate"))}
+          dateLabel="Effective Date"
           page={`Page ${equipmentHeader?.pageNumber ?? 1} of ${equipmentHeader?.totalPages ?? 1}`}
         />
 
@@ -362,7 +431,7 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
             {/* 4. Physical */}
             <section>
               <h4 className="font-bold uppercase tracking-wider mb-4 border-b border-muted-foreground pb-1 text-sm text-primary">4. Physical Characteristics</h4>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-x-8 gap-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-4">
                 <FormField control={form.control} name="dimensionWidthCm" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Width (cm)</FormLabel>
@@ -382,15 +451,24 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="dimensionsNote" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">Dimensions Note</FormLabel>
-                    <FormControl><Textarea rows={2} placeholder="e.g. As layout" {...field} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                  <FormItem onInput={(event) => {
+                    const target = event.target;
+                    if (target instanceof HTMLTextAreaElement) setDimensionsNoteDraft(target.value);
+                  }}>
+                    <FormLabel className="font-semibold">Dimensions details / note</FormLabel>
+                    <FormControl><Textarea rows={3} placeholder="Example: Cylinder: Ø105 × 406&#10;AHU: 665 × 125 × 110" {...field} readOnly={!canEdit} className="min-h-20 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="weightKg" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Weight (kg)</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value || ""} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                    <FormControl><Input type="text" inputMode="decimal" placeholder="e.g. 1500 kg" {...field} value={weightDraft} onChange={(event) => { setWeightDraft(event.target.value); field.onChange(event.target.value); }} readOnly={!canEdit} className="bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="weightNote" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Weight details / note</FormLabel>
+                    <FormControl><Textarea rows={3} placeholder="Example: Cylinder: 1500 kg&#10;AHU: 850 kg" {...field} readOnly={!canEdit} className="min-h-20 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
               </div>
@@ -408,22 +486,24 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                 )} />
                 <FormField control={form.control} name="utilitiesAir" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">Compressed Air (Bar/CFM)</FormLabel>
+                    <FormLabel className="font-semibold">{machineId === 84 && recordNumber === 1 ? "Max output (tab/Hr)" : hasPowerAndAirUtilities(machineId, recordNumber) ? "Air pressure" : hasRotaryTabletPressUtilities(machineId, recordNumber) ? "Maximum Tablet Pressing Force" : "Compressed Air (Bar/CFM)"}</FormLabel>
                     <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
+                {!hasPowerAndAirUtilities(machineId, recordNumber) && <>
                 <FormField control={form.control} name="utilitiesWater" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">Water (Type/Pressure/Temp)</FormLabel>
+                    <FormLabel className="font-semibold">{machineId === 113 && recordNumber === 1 ? "Humidity" : machineId === 84 && recordNumber === 1 ? "Maximum Turret RPM" : hasRotaryTabletPressUtilities(machineId, recordNumber) ? "Max Pre-Pressure" : hasTabletPressUtilities(machineId, recordNumber) ? "Lubrication system" : "Water (Type/Pressure/Temp)"}</FormLabel>
                     <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="utilitiesOther" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">Other Utilities (Steam/Gas/etc.)</FormLabel>
+                    <FormLabel className="font-semibold">{machineId === 113 && recordNumber === 1 ? "Noise Level" : machineId === 84 && recordNumber === 1 ? "Main Compression Roller Max Pressure" : hasWaterConnection(machineId, recordNumber) ? "Water Connection" : hasCoMillCapacity(machineId, recordNumber) ? "Capacity" : hasLifterCapacity(machineId, recordNumber) ? "Lifter Capacity" : hasBlenderRpm(machineId, recordNumber) ? "Blender RPM" : hasPowlCapacity(machineId, recordNumber) ? "Powl Capacity" : hasProductContainerCapacity(machineId, recordNumber) ? "Product Container Capacity" : hasRotaryTabletPressUtilities(machineId, recordNumber) ? "Maximum Punching Depth" : hasTabletPressUtilities(machineId, recordNumber) ? "Max Tablet size can be Compressed" : hasRollSizeUtility(machineId, recordNumber) ? "Roll Size" : "Other Utilities (Steam/Gas/etc.)"}</FormLabel>
                     <FormControl><Textarea {...field} rows={2} readOnly={!canEdit} className="min-h-14 resize-y bg-transparent border-t-0 border-x-0 border-b border-black/20 dark:border-white/20 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary font-mono text-sm" /></FormControl>
                   </FormItem>
                 )} />
+                </>}
               </div>
             </section>
 
@@ -481,7 +561,8 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                   <ElectronicSignatureField
                     documentType="EQUIPMENT_INFORMATION"
                     documentId={machineId}
-                    fieldName="prepared_by"
+                    fieldName={signatureField("prepared_by")}
+                    permissionFieldName="prepared_by"
                     label="Prepared By Electronic Signature"
                   />
                 </div>
@@ -501,7 +582,8 @@ export default function EquipmentInformationForm({ params }: { params: { id: str
                   <ElectronicSignatureField
                     documentType="EQUIPMENT_INFORMATION"
                     documentId={machineId}
-                    fieldName="approved_by"
+                    fieldName={signatureField("approved_by")}
+                    permissionFieldName="approved_by"
                     label="Approved By Electronic Signature"
                   />
                 </div>

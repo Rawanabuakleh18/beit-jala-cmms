@@ -215,6 +215,7 @@ async function recordDetail(record: typeof correctiveMaintenanceRecordsTable.$in
 
   return {
     ...record,
+    startupDate: record.startupDate,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     events: events.filter((event) => {
@@ -375,25 +376,48 @@ router.put("/header", requireAuth, requirePermission("edit_header_corrective_mai
       documentNumber?: string;
       executionDate?: string | null;
       pageCount?: string;
+      machineName?: string;
+      machineNumber?: string;
+      machineLocation?: string | null;
+      startupDate?: string | null;
     };
-    const [updated] = await db
-      .update(correctiveMaintenanceRecordsTable)
-      .set({
+    const machineLocation = body.machineLocation?.trim() || null;
+    const machineNumber = body.machineNumber?.trim();
+    if (!machineNumber) {
+      res.status(400).json({ error: "Machine number is required" });
+      return;
+    }
+    const updated = await db.transaction(async (tx) => {
+      const [savedRecord] = await tx
+        .update(correctiveMaintenanceRecordsTable)
+        .set({
+          documentNumber: body.documentNumber?.trim() || record.documentNumber,
+          executionDate: body.executionDate?.trim() || null,
+          pageCount: body.pageCount?.trim() || record.pageCount,
+          machineName: body.machineName?.trim() || record.machineName,
+          machineNumber,
+          machineLocation,
+          startupDate: body.startupDate?.trim() || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(correctiveMaintenanceRecordsTable.id, record.id))
+        .returning();
+
+      await tx.update(machinesTable).set({
+        location: machineLocation,
+        updatedAt: new Date(),
+      }).where(eq(machinesTable.id, machineId));
+
+      await tx.update(correctiveMaintenanceRecordsTable).set({
         documentNumber: body.documentNumber?.trim() || record.documentNumber,
         executionDate: body.executionDate?.trim() || null,
-        pageCount: body.pageCount?.trim() || record.pageCount,
         updatedAt: new Date(),
-      })
-      .where(eq(correctiveMaintenanceRecordsTable.id, record.id))
-      .returning();
+      }).where(and(eq(correctiveMaintenanceRecordsTable.status, "active"), ne(correctiveMaintenanceRecordsTable.id, record.id)));
 
-    await db.update(correctiveMaintenanceRecordsTable).set({
-      documentNumber: body.documentNumber?.trim() || record.documentNumber,
-      executionDate: body.executionDate?.trim() || null,
-      updatedAt: new Date(),
-    }).where(and(eq(correctiveMaintenanceRecordsTable.status, "active"), ne(correctiveMaintenanceRecordsTable.id, record.id)));
+      return savedRecord!;
+    });
 
-    res.json(await recordDetail(updated!));
+    res.json(await recordDetail(updated));
   } catch (err) {
     next(err);
   }

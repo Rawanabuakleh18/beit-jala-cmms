@@ -4,6 +4,7 @@ import {
   auditLogsTable,
   db,
   eligibleSignerAssignmentsTable,
+  monthlyPmPlansTable,
   signatureFieldPermissionsTable,
   signaturesTable,
   usersTable,
@@ -466,6 +467,69 @@ router.post("/sign", requireAuth, async (req, res, next) => {
       signatureType,
     });
     res.status(201).json(formatSignature(created!));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/:id", requireAuth, async (req, res, next) => {
+  try {
+    if (req.session.roleName !== "Admin") {
+      res.status(403).json({ error: "Admin access required" });
+      return;
+    }
+
+    const id = Number.parseInt(firstParam(req.params.id) ?? "", 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: "Invalid signature ID" });
+      return;
+    }
+
+    const deleted = await db.transaction(async (tx) => {
+      const [signature] = await tx.select().from(signaturesTable).where(eq(signaturesTable.id, id));
+      if (!signature) return null;
+
+      await tx.delete(signaturesTable).where(eq(signaturesTable.id, id));
+
+      if (signature.documentType === "MONTHLY_PLAN") {
+        const dateFieldBySignature: Record<string, keyof typeof monthlyPmPlansTable.$inferInsert> = {
+          prepared_by: "preparedByDate",
+          maintenance_supervisor: "maintenanceSupervisorDate",
+          department_manager: "departmentManagerDate",
+          approved_by: "approvedByDate",
+        };
+        const dateField = dateFieldBySignature[signature.fieldName];
+        if (dateField) {
+          await tx
+            .update(monthlyPmPlansTable)
+            .set({ [dateField]: null, updatedAt: new Date() })
+            .where(eq(monthlyPmPlansTable.id, signature.documentId));
+        }
+      }
+
+      await tx.insert(auditLogsTable).values({
+        userId: req.session.userId ?? null,
+        action: "document_signature_deleted",
+        entityType: "signature",
+        entityId: signature.id,
+        details: {
+          documentType: signature.documentType,
+          documentId: signature.documentId,
+          fieldName: signature.fieldName,
+          signedByUserId: signature.userId,
+          signedByUserName: signature.userName,
+          signedAt: signature.signedAt.toISOString(),
+        },
+      });
+
+      return signature;
+    });
+
+    if (!deleted) {
+      res.status(404).json({ error: "Signature not found" });
+      return;
+    }
+    res.json({ success: true, id: deleted.id });
   } catch (err) {
     next(err);
   }

@@ -84,6 +84,7 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
   const canDeleteRows = hasPermission("delete_monthly_pm_plan_rows");
   const [isEditingRows, setIsEditingRows] = useState(false);
   const [form, setForm] = useState<MonthlyPlan | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState("all");
   const [carryOverMachineId, setCarryOverMachineId] = useState("");
   const [carryOverDate, setCarryOverDate] = useState(`${year}-${String(month).padStart(2, "0")}-01`);
   const [newMachineId, setNewMachineId] = useState("");
@@ -195,6 +196,13 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
 
   if (isLoading || !form) return <div className="p-8 text-muted-foreground">Loading monthly plan...</div>;
 
+  const departments = [...new Set(form.rows.map((row) => row.departmentName || "Unassigned"))]
+    .sort((left, right) => left.localeCompare(right));
+  const visibleRows = departmentFilter === "all"
+    ? form.rows
+    : form.rows.filter((row) => (row.departmentName || "Unassigned") === departmentFilter);
+  const printDepartmentQuery = departmentFilter === "all" ? "" : `?department=${encodeURIComponent(departmentFilter)}`;
+
   return (
     <form onSubmit={submit} className="space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
@@ -211,7 +219,7 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">
-            <Link href={`/print/monthly-plan/${year}/${month}`}>Official Print</Link>
+            <Link href={`/print/monthly-plan/${year}/${month}${printDepartmentQuery}`}>Official Print</Link>
           </Button>
           {canEditPlan && (
             <Button type="submit" disabled={save.isPending}>
@@ -262,14 +270,30 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle>Scheduled Machines</CardTitle>
-          {(canEditRows || canDeleteRows) && (
-            <Button type="button" variant={isEditingRows ? "outline" : "default"} onClick={() => setIsEditingRows((value) => !value)}>
-              {isEditingRows ? <X className="mr-2 h-4 w-4" /> : <Pencil className="mr-2 h-4 w-4" />}
-              {isEditingRows ? "Finish editing" : "Edit monthly table"}
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {departments.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Label htmlFor="monthly-department-filter" className="whitespace-nowrap">Department</Label>
+                <select
+                  id="monthly-department-filter"
+                  value={departmentFilter}
+                  onChange={(event) => setDepartmentFilter(event.target.value)}
+                  className="flex h-9 min-w-52 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="all">All allowed departments</option>
+                  {departments.map((department) => <option key={department} value={department}>{department}</option>)}
+                </select>
+              </div>
+            )}
+            {(canEditRows || canDeleteRows) && (
+              <Button type="button" variant={isEditingRows ? "outline" : "default"} onClick={() => setIsEditingRows((value) => !value)}>
+                {isEditingRows ? <X className="mr-2 h-4 w-4" /> : <Pencil className="mr-2 h-4 w-4" />}
+                {isEditingRows ? "Finish editing" : "Edit monthly table"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {canEditRows && isEditingRows && (
@@ -301,7 +325,7 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
                   <option value="">Select machine</option>
                   {Array.from(
                     new Map(
-                      form.rows
+                      visibleRows
                         .filter((row) => row.machineId)
                         .map((row) => [row.machineId, row]),
                     ).values(),
@@ -339,7 +363,7 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
               </TableRow>
             </TableHeader>
             <TableBody>
-              {form.rows.map((row) => (
+              {visibleRows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell>{row.rowNumber}</TableCell>
                   <TableCell>{row.departmentName}</TableCell>
@@ -388,6 +412,7 @@ export default function MonthlyPlanPage({ params }: { params: { year: string; mo
                   )}
                 </TableRow>
               ))}
+              {visibleRows.length === 0 && <TableRow><TableCell colSpan={canDeleteRows && isEditingRows ? 10 : 9} className="h-24 text-center text-muted-foreground">No machines in this department.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

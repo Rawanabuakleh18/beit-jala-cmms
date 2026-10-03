@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { parseIdParam, requireAuth, requirePermission } from "../lib/auth.js";
+import { canAccessDocument, restrictedMachineAccess } from "../lib/machine-access.js";
 
 const router = Router();
 
@@ -235,7 +236,13 @@ router.get("/:id/movements", requireAuth, requirePermission("view_spare_parts"),
       .from(sparePartMovementsTable)
       .where(eq(sparePartMovementsTable.sparePartId, id))
       .orderBy(desc(sparePartMovementsTable.createdAt), desc(sparePartMovementsTable.id));
-    res.json(rows.map(formatMovement));
+    const visible = restrictedMachineAccess()
+      ? (await Promise.all(rows.map(async (row) => {
+          const type = row.referenceType === "CM_REQUEST" ? "MAINTENANCE_REQUEST" : row.referenceType;
+          return await canAccessDocument(type, row.referenceId ?? 0) ? row : null;
+        }))).filter((row) => row !== null)
+      : rows;
+    res.json(visible.map(formatMovement));
   } catch (err) {
     next(err);
   }

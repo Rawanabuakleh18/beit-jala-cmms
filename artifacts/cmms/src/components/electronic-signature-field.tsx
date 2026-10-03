@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getGetDashboardStatsQueryKey } from "@workspace/api-client-react";
-import { CheckCircle2, KeyRound, Lock } from "lucide-react";
+import { CheckCircle2, KeyRound, Lock, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,7 @@ export function ElectronicSignatureField({
       (activeAssignments.some((item) => item.eligibleUserId === user?.id) || permanentPermissions.some((item) => item.eligibleUserId === user?.id)),
     [activeAssignments, permanentPermissions, signature, user?.id],
   );
+  const isAdmin = user?.roleName === "Admin";
 
   const invalidate = async () => {
     await Promise.all([
@@ -131,6 +132,25 @@ export function ElectronicSignatureField({
     mutationFn: () => apiRequest<{ signatureData: string }>("/signatures/profile", { method: "PUT", body: JSON.stringify({ signatureData: drawnSignature }) }),
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["signature-profile"] }); setProfileOpen(false); signMutation.mutate(); },
   });
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest<{ success: boolean; id: number }>(`/signatures/${signature!.id}`, { method: "DELETE" }),
+    onSuccess: async () => {
+      await Promise.all([
+        invalidate(),
+        queryClient.invalidateQueries({ queryKey: ["monthly-plan"] }),
+        queryClient.invalidateQueries({ queryKey: ["print-monthly-plan"] }),
+      ]);
+      toast({ title: "Signature deleted", description: `${label} was cleared.` });
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: "Delete failed", description: error instanceof Error ? error.message : "Unable to delete signature." });
+    },
+  });
+
+  const deleteSignature = () => {
+    if (!signature || !window.confirm(`Delete the signature for ${label}?`)) return;
+    deleteMutation.mutate();
+  };
 
   return (
     <div className="rounded-md border border-black/20 bg-white p-3 text-black print:border-black">
@@ -154,7 +174,16 @@ export function ElectronicSignatureField({
             </div>
           )}
         </div>
-        {signature && <Badge variant="secondary">Signed</Badge>}
+        {signature && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">Signed</Badge>
+            {isAdmin && (
+              <Button type="button" size="icon" variant="destructive" onClick={deleteSignature} disabled={deleteMutation.isPending} title="Delete signature" aria-label={`Delete ${label} signature`} className="print:hidden">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
         {!signature && canSign && (
           <Button type="button" size="sm" onClick={() => profile?.signatureData ? signMutation.mutate() : setProfileOpen(true)} disabled={signMutation.isPending} className="print:hidden">
             <KeyRound className="mr-2 h-4 w-4" />

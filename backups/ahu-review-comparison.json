@@ -1,0 +1,670 @@
+{
+  "reviewedAt": "2026-09-22T04:40:50.751Z",
+  "results": [
+    {
+      "machine": "AC 3/4",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 5,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AHU-1",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 17,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 3/6 B",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 18,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 4/5 C",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 19,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 4/5 B",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 20,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 4/5 A",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 21,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 3/6 A",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 22,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 2/5",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 23,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AHU-501",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 72,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AHU-301",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 74,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AHU-401",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 73,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 1/2",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 62,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AHU-101",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 61,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 4/4",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 60,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 4/3",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 63,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "V 2/1",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 64,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "Pack 1",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 65,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 4/2",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 66,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 3/8",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 67,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 3/7",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 68,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 3/1",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 69,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 2/6",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 70,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 2/6 A",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 71,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AHU-201",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 75,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "V 1/1",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 76,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 1/1 A",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 77,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 1/1 B",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 78,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 1/1",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 79,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 1/3",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 80,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 1/4",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 81,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 1/5",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 82,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    },
+    {
+      "machine": "AC 1/6",
+      "count": 35,
+      "equal": true,
+      "records": [
+        {
+          "id": 83,
+          "status": "active",
+          "snapshot": 0,
+          "equal": true
+        }
+      ]
+    }
+  ],
+  "sourcePoints": [
+    "سجل قيمة الهيرتز (Hz) الذي تعمل عليه ماكينة معالجة الهواء.",
+    "من المؤقت (Timer) سجل زمن بدء عمل الماكينة",
+    "من المؤقت (Timer) سجل زمن نهاية عمل الماكينة",
+    "تأكد أن الــDamper مفتوح بنسبة مساوية للعلامة على AHU",
+    "افحص عمل محرك خلط الهواء (Mixing air damper)",
+    "تفقد الوصلات المرنة  (Flexible connections)على خطي الدافع والراجع.",
+    "افحص ساعات الضغط على خطوط المياة، وتأكد من سلامة الساعة وزجاجتها.",
+    "قم بعمل (Zero Test) لساعات قياس الضغط لخطوط المياة.",
+    "قم بفحص ساعات الحرارة على خطوط المياة، وتأكد من عدم كسرها وسلامة التدريج.",
+    "افحص مرابط أبواب الماكينة، وأن إغلاقها يتم بشكل جيد.",
+    "تأكد من عدم وجود \"صوت ازعاج\" صادر من الماكينة",
+    "تاكد أن لون السائل داخل U tube Manometer أحمر ولا يوجد به تقطيع.",
+    "تاكد أن أجهزة U tube Manometer معايرة",
+    "تاكد أن القراءات على أجهزة U tube Manometer واضحة.",
+    "قم بعمل (Zero Test) لأجهزة U tube Manometer.",
+    "قم بالتأكد من سلامة الأنابيب 6ملم الخاصة بالمانوميتر، وأنها عمودية مع مجرى الهواء.",
+    "قم بإيقاف تشغيل الماكينة ثم قطع الكهرباء عنها.",
+    "ضع لافتة - لا تشغل الجهاز تحت الصيانة",
+    "قم بقطع التيار الكهربائي من لوحة التحكم ومن اللوحة الرئيسية.",
+    "افحص حالة الكوابل الكهربائية، من ناحية جودة العازل، وإحكام وصل الكابل مع قاطع الماكينة الرئيسي.",
+    "افحص أقشطة نقل الحركة بين الماتور والمروحة، واستقامة بكرتي نقل الحركة.",
+    "افحص عازلية ملفات الماتور.",
+    "نظف الماكينة من الداخل من كل الحجرات وكذلك ملف التبريد والتدفئة بالماء والصابون وقم بالتجفيف بفوطة جافة.",
+    "في حال الماكينات الخاصة بالأقسام المعقمة، قم بمسح الأجزاء الداخلية بايزوبروبل الكحول 70%.",
+    "نظف الماكينة من الخارج.",
+    "تفقد خطوط المياه الدافع والراجع والملفات وتأكد من عدم وجود تسريب.",
+    "نظف مصافي خطوط المياه (Strainers)، وتأكد من ضغط الشبكة.",
+    "تأكد من نظافة السيفون الخاص بتصريف مياة التكثيف، ووجود الزيت به صيفاً.",
+    "أعد توصيل التيار الكهربائي، وأعد تشغيل الماكينة.",
+    "قم بفحص مروحة دفع الهواء من حيث عدم صدور صوت من بيلها و أنها تدور بشكل جيد وقم بتشحيم هذه البيل.",
+    "قم بفحص أقشطة نقل الحركة من الماتور إلى المروحة وتأكد من عدم وجود إهتراء بالقشاط، وأنه مشدود جيداً وكذلك من إستقامة بكرتي نقل الحركة.",
+    "افحص إنارة الماكينة من الداخل وتأكد انها بحالة جيدة.",
+    "افحص تأريض الأجزاء المعدنية (جسم الماكينة ؛ الدكت و الباب).",
+    "القطع التي تم استبدالها خلال اعمال الصيانة.",
+    "الإجراء المتخذ في حال وجد خطأ / انحراف."
+  ],
+  "comparison": [
+    {
+      "point": 1,
+      "source": "سجل قيمة الهيرتز (Hz) الذي تعمل عليه ماكينة معالجة الهواء.",
+      "system": "سجل قيمة الهيرتز (Hz) الذي تعمل عليه ماكينة معالجة الهواء.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 2,
+      "source": "من المؤقت (Timer) سجل زمن بدء عمل الماكينة",
+      "system": "من المؤقت (Timer) سجل زمن بدء عمل الماكينة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 3,
+      "source": "من المؤقت (Timer) سجل زمن نهاية عمل الماكينة",
+      "system": "من المؤقت (Timer) سجل زمن نهاية عمل الماكينة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 4,
+      "source": "تأكد أن الــDamper مفتوح بنسبة مساوية للعلامة على AHU",
+      "system": "تأكد أن الـ Damper مفتوح بنسبة مساوية للعلامة على AHU.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 5,
+      "source": "افحص عمل محرك خلط الهواء (Mixing air damper)",
+      "system": "افحص عمل محرك خلط الهواء (Mixing air damper)",
+      "normalizedMatch": true
+    },
+    {
+      "point": 6,
+      "source": "تفقد الوصلات المرنة  (Flexible connections)على خطي الدافع والراجع.",
+      "system": "تفقد الوصلات المرنة (Flexible connections) على خطي الدافع والراجع.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 7,
+      "source": "افحص ساعات الضغط على خطوط المياة، وتأكد من سلامة الساعة وزجاجتها.",
+      "system": "افحص ساعات الضغط على خطوط المياه، وتأكد من سلامة الساعة وزجاجتها.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 8,
+      "source": "قم بعمل (Zero Test) لساعات قياس الضغط لخطوط المياة.",
+      "system": "قم بعمل (Zero Test) لساعات قياس الضغط لخطوط المياه.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 9,
+      "source": "قم بفحص ساعات الحرارة على خطوط المياة، وتأكد من عدم كسرها وسلامة التدريج.",
+      "system": "قم بفحص ساعات الحرارة على خطوط المياه، وتأكد من عدم كسرها وسلامة التدريج.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 10,
+      "source": "افحص مرابط أبواب الماكينة، وأن إغلاقها يتم بشكل جيد.",
+      "system": "افحص مرابط أبواب الماكينة، وأن إغلاقها يتم بشكل جيد.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 11,
+      "source": "تأكد من عدم وجود \"صوت ازعاج\" صادر من الماكينة",
+      "system": "تأكد من عدم وجود \"صوت إزعاج\" صادر من الماكينة",
+      "normalizedMatch": true
+    },
+    {
+      "point": 12,
+      "source": "تاكد أن لون السائل داخل U tube Manometer أحمر ولا يوجد به تقطيع.",
+      "system": "تأكد أن لون السائل داخل U tube Manometer أحمر ولا يوجد به تقطيع",
+      "normalizedMatch": true
+    },
+    {
+      "point": 13,
+      "source": "تاكد أن أجهزة U tube Manometer معايرة",
+      "system": "تأكد أن أجهزة U tube Manometer معايرة",
+      "normalizedMatch": true
+    },
+    {
+      "point": 14,
+      "source": "تاكد أن القراءات على أجهزة U tube Manometer واضحة.",
+      "system": "تأكد أن القراءات على أجهزة U tube Manometer واضحة",
+      "normalizedMatch": true
+    },
+    {
+      "point": 15,
+      "source": "قم بعمل (Zero Test) لأجهزة U tube Manometer.",
+      "system": "قم بعمل (Zero Test) لأجهزة U tube Manometer",
+      "normalizedMatch": true
+    },
+    {
+      "point": 16,
+      "source": "قم بالتأكد من سلامة الأنابيب 6ملم الخاصة بالمانوميتر، وأنها عمودية مع مجرى الهواء.",
+      "system": "قم بالتأكد من سلامة الأنابيب 6 ملم الخاصة بالمانوميتر، وأنها عمودية مع مجرى الهواء.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 17,
+      "source": "قم بإيقاف تشغيل الماكينة ثم قطع الكهرباء عنها.",
+      "system": "قم بإيقاف تشغيل الماكينة ثم قطع الكهرباء عنها.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 18,
+      "source": "ضع لافتة - لا تشغل الجهاز تحت الصيانة",
+      "system": "ضع لافتة - لا تشغل الجهاز تحت الصيانة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 19,
+      "source": "قم بقطع التيار الكهربائي من لوحة التحكم ومن اللوحة الرئيسية.",
+      "system": "قم بقطع التيار الكهربائي من لوحة التحكم ومن اللوحة الرئيسية.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 20,
+      "source": "افحص حالة الكوابل الكهربائية، من ناحية جودة العازل، وإحكام وصل الكابل مع قاطع الماكينة الرئيسي.",
+      "system": "افحص حالة الكوابل الكهربائية، من ناحية جودة العازل، وإحكام وصل الكابل مع قاطع الماكينة الرئيسي.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 21,
+      "source": "افحص أقشطة نقل الحركة بين الماتور والمروحة، واستقامة بكرتي نقل الحركة.",
+      "system": "افحص أقشطة نقل الحركة بين الماتور والمروحة، واستقامة بكرتي نقل الحركة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 22,
+      "source": "افحص عازلية ملفات الماتور.",
+      "system": "افحص عازلية ملفات الماتور",
+      "normalizedMatch": true
+    },
+    {
+      "point": 23,
+      "source": "نظف الماكينة من الداخل من كل الحجرات وكذلك ملف التبريد والتدفئة بالماء والصابون وقم بالتجفيف بفوطة جافة.",
+      "system": "نظف الماكينة من الداخل من كل الحجرات وكذلك ملف التبريد والتدفئة بالماء والصابون وقم بالتجفيف بفوطة جافة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 24,
+      "source": "في حال الماكينات الخاصة بالأقسام المعقمة، قم بمسح الأجزاء الداخلية بايزوبروبل الكحول 70%.",
+      "system": "في حال الماكينات الخاصة بالأقسام المعقمة، قم بمسح الأجزاء الداخلية بأيزوبروبل الكحول 70%",
+      "normalizedMatch": true
+    },
+    {
+      "point": 25,
+      "source": "نظف الماكينة من الخارج.",
+      "system": "نظف الماكينة من الخارج.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 26,
+      "source": "تفقد خطوط المياه الدافع والراجع والملفات وتأكد من عدم وجود تسريب.",
+      "system": "تفقد خطوط المياه الدافع والراجع والملفات وتأكد من عدم وجود تسريب.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 27,
+      "source": "نظف مصافي خطوط المياه (Strainers)، وتأكد من ضغط الشبكة.",
+      "system": "نظف مصافي خطوط المياه (Strainers)، وتأكد من ضغط الشبكة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 28,
+      "source": "تأكد من نظافة السيفون الخاص بتصريف مياة التكثيف، ووجود الزيت به صيفاً.",
+      "system": "تأكد من نظافة السيفون الخاص بتصريف مياه التكثيف, ووجود الزيت به صيفاً.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 29,
+      "source": "أعد توصيل التيار الكهربائي، وأعد تشغيل الماكينة.",
+      "system": "أعد توصيل التيار الكهربائي, وأعد تشغيل الماكينة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 30,
+      "source": "قم بفحص مروحة دفع الهواء من حيث عدم صدور صوت من بيلها و أنها تدور بشكل جيد وقم بتشحيم هذه البيل.",
+      "system": "قم بفحص مروحة دفع الهواء من حيث عدم صدور صوت من بيلها وأنها تدور بشكل جيد وقم بتشحيم هذه البيل.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 31,
+      "source": "قم بفحص أقشطة نقل الحركة من الماتور إلى المروحة وتأكد من عدم وجود إهتراء بالقشاط، وأنه مشدود جيداً وكذلك من إستقامة بكرتي نقل الحركة.",
+      "system": "قم بفحص أقشطة نقل الحركة من الماتور إلى المروحة وتأكد من عدم وجود اهتراء بالقشاط، وأنه مشدود جيداً وكذلك من إستقامة بكرتي نقل الحركة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 32,
+      "source": "افحص إنارة الماكينة من الداخل وتأكد انها بحالة جيدة.",
+      "system": "افحص إنارة الماكينة من الداخل وتأكد أنها بحالة جيدة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 33,
+      "source": "افحص تأريض الأجزاء المعدنية (جسم الماكينة ؛ الدكت و الباب).",
+      "system": "افحص تأريض الأجزاء المعدنية (جسم الماكينة; الدكت والباب).",
+      "normalizedMatch": true
+    },
+    {
+      "point": 34,
+      "source": "القطع التي تم استبدالها خلال اعمال الصيانة.",
+      "system": "القطع التي تم استبدالها خلال أعمال الصيانة.",
+      "normalizedMatch": true
+    },
+    {
+      "point": 35,
+      "source": "الإجراء المتخذ في حال وجد خطأ / انحراف.",
+      "system": "الإجراء المتخذ في حال وجد خطأ / انحراف.",
+      "normalizedMatch": true
+    }
+  ]
+}

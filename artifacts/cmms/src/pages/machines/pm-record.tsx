@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, CheckCircle2, Clock, Pencil, Printer, Save, Settings2, Trash2 } from "lucide-react";
 import { OfficialFormHeader } from "@/components/official-form-header";
+import { PmMachineServiceArea } from "@/components/pm-machine-service-area";
 import { useToast } from "@/hooks/use-toast";
 import { getGetDashboardStatsQueryKey } from "@workspace/api-client-react";
 
@@ -39,10 +40,14 @@ type PmInspection = {
 
 type PmRecordDetail = {
   record: { id: number; sequenceNumber: number; inspectionCount: number; status: string };
-  header: {
+  header: { showServiceArea: boolean; serviceAreaMachineNumber: string | null; serviceAreaLocation: string | null;
     procedureFormNumber: string;
     effectiveDate: string | null;
     department: string | null;
+    pmRecordDescription: string | null;
+    machineRecordName: string | null;
+    machineRecordId: string | null;
+    pmRecordTitle: string | null;
     columnsPerRecord: number;
     inspectionColumnsPerPrintPage: number;
   };
@@ -52,6 +57,11 @@ type PmRecordDetail = {
 };
 
 type SignatureFieldPermission = { eligibleUserId: number };
+
+function formatDisplayedDate(date: string) {
+  const [year, month, day] = date.split("-");
+  return year && month && day ? `${Number(day)}/${Number(month)}/${year}` : date;
+}
 
 export default function PmRecordPage({ params }: { params: { id: string; recordId?: string } }) {
   const machineId = Number(params.id);
@@ -233,6 +243,10 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
             <Label>Department</Label>
             <Input value={data.header.department ?? ""} readOnly />
           </div>
+          <div className="md:col-span-2">
+            <Label>PM record title</Label>
+            <Input value={data.header.pmRecordTitle ?? ""} readOnly />
+          </div>
           <div>
             <Label>Page count</Label>
             <Input value={`Page 1 of ${data.pageCount}`} readOnly />
@@ -254,6 +268,7 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
           documentName="Preventive Maintenance Record"
           documentNumber={data.header.procedureFormNumber}
           effectiveOrExecutionDate={data.header.effectiveDate}
+          dateLabel="Effective Date"
           page={`Page 1 of ${data.pageCount}`}
         />
       </div>
@@ -263,6 +278,7 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
           <CardTitle>Checklist</CardTitle>
         </CardHeader>
         <CardContent>
+          <PmMachineServiceArea {...data.header} machineId={machineId} />
           <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
@@ -272,7 +288,7 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
                   {data.inspections.map((inspection) => (
                     <TableHead key={inspection.id} className="min-w-40">
                       Inspection {inspection.columnNumber}
-                      <div className="text-xs font-normal text-muted-foreground">{inspection.inspectionDate}</div>
+                      <div className="text-xs font-normal text-muted-foreground">{formatDisplayedDate(inspection.inspectionDate)}</div>
                       {!isHistorical && (canEditInspection || canDeleteInspection) && <div className="mt-1 flex items-center gap-1">
                         {canEditInspection && <Button type="button" variant="ghost" size="sm" className="h-7 px-1" onClick={() => editInspection(inspection)}>
                           <Pencil className="mr-1 h-3 w-3" />Edit
@@ -360,7 +376,7 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div>
-                <Label>Inspection date</Label>
+                <Label>Execution date</Label>
                 <Input type="date" value={inspectionDate} onChange={(event) => setInspectionDate(event.target.value)} />
               </div>
               <div>
@@ -378,7 +394,7 @@ export default function PmRecordPage({ params }: { params: { id: string; recordI
                 <Input type="month" value={executionMonthYear} onChange={(event) => setExecutionMonthYear(event.target.value)} />
               </div>
               <div className="md:col-span-2">
-                <Label>Action taken in case of error/deviation</Label>
+                <Label>{machineId === 114 ? "Notes" : "Action taken in case of error/deviation"}</Label>
                 <Textarea value={actionTaken} onChange={(event) => setActionTaken(event.target.value)} />
               </div>
               <div>

@@ -1,0 +1,16 @@
+{
+  "id": 12,
+  "machine_id": 15,
+  "procedure_form_number": "LOG-10-0542-1",
+  "effective_date": "2021-11-18",
+  "department": "Engineering & Maintenance",
+  "columns_per_record": 5,
+  "created_at": "2026-08-16T23:48:02.991Z",
+  "updated_at": "2026-09-19T06:39:34.606Z",
+  "inspection_columns_per_print_page": 2,
+  "machine_record_name": null,
+  "machine_record_id": null,
+  "machine_record_label": null,
+  "pm_record_description": "سجل نشاطات الصيانة الوقائية لجهاز",
+  "pm_record_title": "سجل نشاطات الصيانة الوقائية لجهاز البويلر نوع CHAPPEE المستخدم في التدفئة (B-2)"
+}

@@ -1,0 +1,24 @@
+{
+  "header": [
+    {
+      "id": 81,
+      "machine_id": 84,
+      "procedure_form_number": "LOG-00-0102",
+      "effective_date": null,
+      "department": "Production",
+      "columns_per_record": 5,
+      "created_at": "2026-09-22T18:43:27.815Z",
+      "updated_at": "2026-09-22T18:43:27.815Z",
+      "inspection_columns_per_print_page": 2,
+      "machine_record_name": "Double Rotary Tablets Press Machine / Karnavati",
+      "machine_record_id": "PDM-01-118",
+      "machine_record_label": null,
+      "pm_record_description": "سجل نشاطات الصيانة الوقائية لجهاز",
+      "pm_record_title": "سجل نشاطات الصيانة الوقائية لجهاز\nDouble Rotary Tablets Press Machine / Karnavati (PDM-01-118)",
+      "show_service_area": false,
+      "service_area_machine_number": null,
+      "service_area_location": null
+    }
+  ],
+  "checklist": []
+}

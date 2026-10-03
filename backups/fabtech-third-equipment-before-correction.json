@@ -1,0 +1,43 @@
+{
+  "id": 6,
+  "machine_id": 58,
+  "record_number": 3,
+  "data": {
+    "others": "11.5. Basic Structure\n11.6. Discharge\n",
+    "weightKg": null,
+    "weightNote": "N.A",
+    "modelNumber": "FTIL-CNTBLD-600",
+    "safetyIssues": "Disconnect the electrical plug from the main power supply before performing any maintenance and cleaning",
+    "serialNumber": "N.A",
+    "utilitiesAir": "6 bar-",
+    "datePurchased": "2020",
+    "othersDetails": "316L Contact part                                           \n304L non contact part\nManual Butter Fly Valve 316L",
+    "approvedByDate": "",
+    "approvedByName": "",
+    "dimensionsNote": "19614L*2500W*3200H (mm)",
+    "preparedByDate": "",
+    "preparedByName": "",
+    "utilitiesOther": "",
+    "utilitiesWater": "Purified Water\n",
+    "nameOfEquipment": "Granulation Line 200 Kg/ FabTech\nConta blender 600L",
+    "dimensionDepthCm": null,
+    "dimensionWidthCm": null,
+    "dimensionHeightCm": null,
+    "purchasedFromName": "a- Fabtech Technologies International Ltd",
+    "safetyIssuesDetails": "",
+    "identificationNumber": "PDM-01-097D",
+    "purchasedFromAddress": "b- 717 Janki centre off veera Desai Road\nAndeheri (W) Mumbai400053, India",
+    "utilitiesPowerSupply": "380volt 50Hz -1440 rpm",
+    "manufacturingCompanyName": "a- Fabtech Technologies International Ltd",
+    "manufacturingCompanyAddress": "b- 717 Janki centre off veera Desai Road\nAndeheri (W) Mumbai400053, India"
+  },
+  "header": {
+    "pageNumber": 1,
+    "totalPages": 1,
+    "companyName": "Beit Jala Pharmaceutical Co.",
+    "documentName": "Equipment Information Record",
+    "documentNumber": "FORM-10-0118-1",
+    "effectiveOrExecutionDate": "2013-08-24"
+  },
+  "updated_at": "2026-09-17T05:46:06.793Z"
+}

@@ -1,0 +1,19 @@
+[
+  {
+    "id": 55,
+    "machine_id": 58,
+    "procedure_form_number": "LOG-00-0102",
+    "effective_date": null,
+    "department": "Production",
+    "columns_per_record": 5,
+    "created_at": "2026-09-16T23:39:31.736Z",
+    "updated_at": "2026-09-19T01:41:13.856Z",
+    "inspection_columns_per_print_page": 2,
+    "machine_record_name": "Granulation Line 200 Kg/ FabTech",
+    "machine_record_id": "PDM-01-097",
+    "machine_record_label": null,
+    "pm_record_description": "سجل نشاطات الصيانة الوقائية لجهاز",
+    "pm_record_title": "سجل نشاطات الصيانة الوقائية المنجزة لماكينة لخط تحبيب البودرة\nGranulation Line 200 Kgرقم FabTech (PDM-01-097)",
+    "machine_number": "PDM-01-097"
+  }
+]

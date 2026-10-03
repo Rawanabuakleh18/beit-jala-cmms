@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { auditLogsTable, db, usersTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { requireActiveAuth, requirePermission } from "../lib/auth.js";
+import { machineAccess, restrictedMachineAccess } from "../lib/machine-access.js";
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.get("/", requireActiveAuth, requirePermission("view_audit_logs"), async (
       })
       .from(auditLogsTable)
       .leftJoin(usersTable, eq(auditLogsTable.userId, usersTable.id))
+      .where(restrictedMachineAccess() ? and(eq(auditLogsTable.entityType, "machine"), machineAccess(auditLogsTable.entityId)) : undefined)
       .orderBy(desc(auditLogsTable.createdAt), desc(auditLogsTable.id))
       .limit(500);
 

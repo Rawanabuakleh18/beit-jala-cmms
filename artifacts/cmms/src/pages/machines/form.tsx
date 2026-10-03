@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "../../contexts/AuthContext";
 import { 
@@ -68,6 +69,8 @@ export default function MachineForm({ params }: { params?: { id: string } }) {
 
   const createMutation = useCreateMachine();
   const updateMutation = useUpdateMachine();
+  const [pendingValues, setPendingValues] = useState<MachineFormValues | null>(null);
+  const [planYear, setPlanYear] = useState(new Date().getFullYear());
 
   const form = useForm<MachineFormValues>({
     resolver: zodResolver(machineSchema),
@@ -104,13 +107,22 @@ export default function MachineForm({ params }: { params?: { id: string } }) {
     }
   }, [departments, form, isEditing]);
 
-  const onSubmit = (values: MachineFormValues) => {
+  const onSubmit = (values: MachineFormValues, applyToPlan?: boolean) => {
+    const scheduleChanged = isEditing && machineData &&
+      ((values.pmStartDate || null) !== (machineData.pmStartDate?.split('T')[0] || null) ||
+       (values.pmFrequencyMonths || null) !== machineData.pmFrequencyMonths);
+    if (scheduleChanged && applyToPlan === undefined) {
+      setPlanYear(Number(values.pmStartDate?.slice(0, 4)) || new Date().getFullYear());
+      setPendingValues(values);
+      return;
+    }
     // Clean up empty strings to nulls for API
     const payload = {
       ...values,
       departmentId: values.departmentId || null,
       pmFrequencyMonths: values.pmFrequencyMonths || null,
       pmStartDate: values.pmStartDate || null,
+      ...(isEditing ? { applyPmScheduleToPlanYear: applyToPlan ? planYear : null } : {}),
     };
 
     if (isEditing && machineId) {
@@ -118,6 +130,8 @@ export default function MachineForm({ params }: { params?: { id: string } }) {
         { id: machineId, data: payload },
         {
           onSuccess: (data) => {
+            setPendingValues(null);
+            queryClient.invalidateQueries();
             queryClient.invalidateQueries({ queryKey: ["machines"] });
             queryClient.setQueryData(getGetMachineQueryKey(machineId), data);
             toast({
@@ -171,6 +185,21 @@ export default function MachineForm({ params }: { params?: { id: string } }) {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-500">
+      <Dialog open={pendingValues !== null} onOpenChange={(open) => { if (!open && !isPending) setPendingValues(null); }}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تطبيق تغيير موعد الصيانة على الخطة؟</DialogTitle>
+            <DialogDescription>يمكن حفظ معلومات الماكينة فقط، أو تطبيق تاريخ البداية والتكرار على خطة السنة المختارة وخططها الشهرية. تبقى الصيانات المنفذة محفوظة.</DialogDescription>
+          </DialogHeader>
+          <label htmlFor="pm-plan-year">سنة الخطة</label>
+          <Input id="pm-plan-year" type="number" min={2000} max={2100} value={planYear} onChange={event => setPlanYear(Number(event.target.value))} />
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={isPending || !Number.isInteger(planYear) || planYear < 2000 || planYear > 2100 || !pendingValues?.pmStartDate || !pendingValues?.pmFrequencyMonths} onClick={() => pendingValues && onSubmit(pendingValues, true)}>حفظ وتطبيق على الخطة</Button>
+            <Button variant="outline" disabled={isPending} onClick={() => pendingValues && onSubmit(pendingValues, false)}>حفظ معلومات الماكينة فقط</Button>
+            <Button variant="ghost" disabled={isPending} onClick={() => setPendingValues(null)}>رجوع</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link href={isEditing ? `/machines/${machineId}` : "/machines"}>
@@ -188,7 +217,7 @@ export default function MachineForm({ params }: { params?: { id: string } }) {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={form.handleSubmit(values => onSubmit(values))} className="space-y-8">
           <Card>
             <CardHeader>
               <CardTitle>Identification</CardTitle>

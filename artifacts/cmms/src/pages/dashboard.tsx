@@ -1,7 +1,7 @@
 import { useAuth } from "../contexts/AuthContext";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getGetDashboardStatsQueryKey, useGetDashboardStats } from "@workspace/api-client-react";
+import { getGetDashboardStatsQueryKey, getGetMonthlyPmPlanQueryKey, getGetMachinesQueryKey, useGetMachines, useGetDashboardStats, useGetMonthlyPmPlan } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,8 @@ import {
   Clock,
   Package,
   Bell,
+  ChevronDown,
+  ChevronUp,
   X,
 } from "lucide-react";
 import {
@@ -41,11 +43,27 @@ export default function DashboardPage() {
   const { user, hasPermission } = useAuth();
   const { t } = useTranslation();
   const [selectedPmSegment, setSelectedPmSegment] = useState<"Completed" | "Overdue / Not Completed" | null>(null);
+  const { data: visibleMachines } = useGetMachines(undefined, {
+    query: {
+      queryKey: getGetMachinesQueryKey(undefined),
+      enabled: !!user && hasPermission("view_dashboard_machines") && hasPermission("view_machines"),
+    },
+  });
+  const [showAllPmMachines, setShowAllPmMachines] = useState(false);
   const { data: stats, isLoading } = useGetDashboardStats({
     query: {
       queryKey: getGetDashboardStatsQueryKey(),
       enabled: !!user && hasPermission("view_dashboard"),
     }
+  });
+  const now = new Date();
+  const { data: currentMonthlyPlan } = useGetMonthlyPmPlan(now.getFullYear(), now.getMonth() + 1, {
+    query: {
+      queryKey: getGetMonthlyPmPlanQueryKey(now.getFullYear(), now.getMonth() + 1),
+      enabled: !!user
+        && hasPermission("view_dashboard_preventive_maintenance")
+        && hasPermission("view_monthly_maintenance_plan"),
+    },
   });
 
   const canViewTechnicianWork = hasPermission("fill_corrective_maintenance");
@@ -118,6 +136,16 @@ export default function DashboardPage() {
     }>;
     completedCorrectiveThisMonth?: Array<{ id: number; requestReportNumber: string; machineId: number; machineName: string; machineNumber: string; completedDate: string }>;
   };
+  // Fallback for API processes that have not yet restarted with the dashboard
+  // drill-down payload. The monthly plan contains the same permission-filtered
+  // rows and lets the chart show machine names immediately.
+  const monthlyPlanMachines = (currentMonthlyPlan?.rows ?? []).map((row) => ({
+    id: row.id,
+    machineId: row.machineId,
+    machineName: row.machineName,
+    machineNumber: row.identificationNumber ?? "",
+    completed: !!row.actualDate,
+  }));
   const canViewSpareParts = !!user?.permissions.includes("view_spare_parts");
   const canViewNotifications = hasPermission("view_dashboard_notifications");
   const canViewMachines = hasPermission("view_dashboard_machines");
@@ -162,9 +190,9 @@ export default function DashboardPage() {
                 <Server className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{stats.totalMachines}</div>
+                <div className="text-3xl font-bold">{visibleMachines?.filter((machine) => !machine.deletedAt).length ?? stats.totalMachines}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-emerald-500 font-medium">{stats.activeMachines} {t('dashboard.activeMachines')}</span> {t('dashboard.acrossDepts', { count: stats.totalDepartments })}
+                  <span className="text-emerald-500 font-medium">{visibleMachines?.filter((machine) => !machine.deletedAt && machine.status.toLowerCase() === "active").length ?? stats.activeMachines} {t('dashboard.activeMachines')}</span> {t('dashboard.acrossDepts', { count: stats.totalDepartments })}
                 </p>
               </CardContent>
             </Card>
@@ -251,7 +279,7 @@ export default function DashboardPage() {
             </Card>
 
             {canViewSpareParts && canViewDashboardSpareParts && (
-              <Card className="h-full lg:order-4 shadow-sm">
+              <Card className="lg:col-span-3 lg:order-6 shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Package className="h-4 w-4 text-primary" />
@@ -281,7 +309,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             )}
-            <Card className={`${canViewRequests ? "" : "hidden"} h-full lg:order-2 shadow-sm`}>
+            <Card className={`${canViewRequests ? "" : "hidden"} lg:order-2 self-start shadow-sm`}>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Activity className="h-4 w-4 text-primary" />
@@ -315,7 +343,7 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className={`${canViewCorrective ? "" : "hidden"} lg:col-span-3 lg:order-6 shadow-sm`}>
+            <Card className={`${canViewCorrective ? "" : "hidden"} h-full lg:order-4 overflow-hidden shadow-sm`}>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -323,12 +351,12 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {pmStats?.completedCorrectiveThisMonth?.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {pmStats?.completedCorrectiveThisMonth?.length ? <div className="grid max-h-[300px] gap-2 overflow-y-auto pr-1">
                   {pmStats.completedCorrectiveThisMonth.map((item) => <Link key={item.id} href={`/maintenance-requests/${item.id}`}><div className="rounded-md border p-3 hover:bg-muted/50"><div className="font-medium">{item.machineName}</div><div className="text-xs text-muted-foreground">{item.requestReportNumber} · {item.machineNumber} · {item.completedDate}</div></div></Link>)}
                 </div> : <p className="py-8 text-center text-sm text-muted-foreground">No corrective maintenance was completed this month.</p>}
               </CardContent>
             </Card>
-            <Card className={`${canViewPm ? "" : "hidden"} h-full lg:order-3 shadow-sm`}>
+            <Card className={`${canViewPm ? "" : "hidden"} h-[300px] lg:order-3 self-start overflow-hidden shadow-sm`}>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Clock className="h-4 w-4 text-amber-500" />
@@ -337,7 +365,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 {pmStats?.thisWeekPm?.length ? (
-                  <div className="space-y-3">
+                  <div className="max-h-[218px] space-y-3 overflow-y-auto pr-1">
                     {pmStats.thisWeekPm.map((item) => (
                       <Link key={item.id} href={`/machines/${item.machineId}/pm`}>
                         <div className="rounded-md border p-3 hover:bg-muted/50 transition-colors cursor-pointer">
@@ -360,7 +388,7 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className={`${canViewPm ? "" : "hidden"} h-full lg:order-1 shadow-sm`}>
+            <Card className={`${canViewPm ? "" : "hidden"} lg:order-1 self-start shadow-sm`}>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -382,6 +410,7 @@ export default function DashboardPage() {
                         cursor="pointer"
                         onClick={(entry) => {
                           const label = entry.label as "Completed" | "Overdue / Not Completed";
+                          setShowAllPmMachines(false);
                           setSelectedPmSegment(selectedPmSegment === label ? null : label);
                         }}
                       >
@@ -404,23 +433,40 @@ export default function DashboardPage() {
                   <div className="mt-2 rounded-md border bg-muted/30 p-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">{selectedPmSegment}</span>
-                      <button onClick={() => setSelectedPmSegment(null)}>
+                      <button onClick={() => {
+                        setSelectedPmSegment(null);
+                        setShowAllPmMachines(false);
+                      }}>
                         <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                       </button>
                     </div>
                     {(() => {
                       const list = selectedPmSegment === "Completed"
-                        ? (pmStats?.monthlyPmCompletionMachines?.completed ?? [])
-                        : (pmStats?.monthlyPmCompletionMachines?.overdue ?? []);
+                        ? (pmStats?.monthlyPmCompletionMachines?.completed
+                          ?? monthlyPlanMachines.filter((machine) => machine.completed))
+                        : (pmStats?.monthlyPmCompletionMachines?.overdue
+                          ?? monthlyPlanMachines.filter((machine) => !machine.completed));
                       return list.length ? (
-                        <div className="space-y-1 max-h-40 overflow-y-auto">
-                          {list.map((m) => (
-                            <Link key={m.id} href={`/machines/${m.machineId}/pm`}>
-                              <div className="text-sm py-1 px-2 rounded hover:bg-muted cursor-pointer">
-                                {m.machineName} <span className="text-muted-foreground">#{m.machineNumber}</span>
-                              </div>
-                            </Link>
-                          ))}
+                        <div>
+                          <div className={`space-y-1 ${showAllPmMachines ? "max-h-48 overflow-y-auto" : ""}`}>
+                            {(showAllPmMachines ? list : list.slice(0, 5)).map((m) => (
+                              <Link key={m.id} href={`/machines/${m.machineId}/pm`}>
+                                <div className="text-sm py-1 px-2 rounded hover:bg-muted cursor-pointer">
+                                  {m.machineName} <span className="text-muted-foreground">#{m.machineNumber}</span>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                          {list.length > 5 && (
+                            <button
+                              type="button"
+                              className="mt-1 flex w-full items-center justify-center rounded py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              onClick={() => setShowAllPmMachines((current) => !current)}
+                              aria-label={showAllPmMachines ? "Show fewer machines" : "Show more machines"}
+                            >
+                              {showAllPmMachines ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                          )}
                         </div>
                       ) : <p className="text-sm text-muted-foreground">{t('dashboard.noMachinesInGroup')}</p>;
                     })()}

@@ -14,11 +14,13 @@ import sparePartsRouter from "./spare-parts.js";
 import dashboardRouter from "./dashboard.js";
 import signaturesRouter from "./signatures.js";
 import auditLogsRouter from "./audit-logs.js";
+import { loadMachineAccess, guardMachineAccess } from "../lib/machine-access.js";
 
 const router = Router();
 
 router.use("/", healthRouter);
 router.use("/auth", authRouter);
+router.use(loadMachineAccess, guardMachineAccess);
 router.use("/users", usersRouter);
 router.use("/roles", rolesRouter);
 router.use("/permissions", permissionsRouter);

@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Printer, Save } from "lucide-react";
+import { ArrowLeft, Printer, Save, Search } from "lucide-react";
 import { OfficialFormHeader } from "@/components/official-form-header";
 import { ElectronicSignatureField } from "@/components/electronic-signature-field";
+import { getGetMachinesQueryKey, useGetMachines } from "@workspace/api-client-react";
+import { machineSerialMap } from "@/lib/machine-serial";
 
 type AnnualRow = {
   id: number;
@@ -72,6 +74,8 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
     user?.roleName === "Admin" || signaturePermissions.some((permission) => permission.fieldName === signatureField && permission.eligibleUserId === user?.id);
   const canEditAnyApproval = ["prepared_by", "engineering_manager", "production_manager", "qc_manager", "rd_manager", "qa_manager"].some(canEditApproval);
   const [form, setForm] = useState<AnnualPlan | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [header, setHeader] = useState<AnnualPlanHeader>({ documentNumber: "", effectiveOrExecutionDate: "" });
 
@@ -79,6 +83,10 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
     queryKey: ["annual-plan", year],
     queryFn: () => apiRequest<AnnualPlan>(`/maintenance-plans/annual/${year}`),
   });
+  const { data: annualMachines = [] } = useGetMachines(undefined, {
+    query: { queryKey: getGetMachinesQueryKey(undefined) },
+  });
+  const serialByMachineId = machineSerialMap(annualMachines);
 
   useEffect(() => {
     if (data) {
@@ -114,6 +122,10 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
       setForm(updated);
       setHasUnsavedChanges(false);
       queryClient.invalidateQueries({ queryKey: ["annual-plan", year] });
+      queryClient.invalidateQueries({ queryKey: ["monthly-plan", year] });
+      queryClient.invalidateQueries({ queryKey: ["monthly-plan-machine-options", year] });
+      queryClient.invalidateQueries({ queryKey: ["print-annual-plan", year] });
+      queryClient.invalidateQueries({ queryKey: ["print-monthly-plan", year] });
     },
   });
 
@@ -139,6 +151,17 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
   if (isError) return <div className="space-y-3 p-8"><p className="text-destructive">تعذر تحميل الخطة السنوية: {error instanceof Error ? error.message : "خطأ غير معروف"}</p><Button type="button" onClick={() => refetch()}>إعادة المحاولة</Button></div>;
   if (isLoading || !form) return <div className="p-8 text-muted-foreground">Loading annual plan...</div>;
 
+  const departments = [...new Set(form.rows.map((row) => row.department || "Unassigned"))]
+    .sort((left, right) => left.localeCompare(right));
+  const normalizedSearch = searchTerm.trim().toLocaleLowerCase();
+  const visibleRows = form.rows
+    .filter((row) => departmentFilter === "all" || (row.department || "Unassigned") === departmentFilter)
+    .filter((row) => !normalizedSearch || [row.machineName, row.machineCode, row.department, row.machineLocation]
+      .some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)))
+    .sort((a, b) => (serialByMachineId.get(a.machineId) ?? Number.MAX_SAFE_INTEGER)
+      - (serialByMachineId.get(b.machineId) ?? Number.MAX_SAFE_INTEGER));
+  const printDepartmentQuery = departmentFilter === "all" ? "" : `?department=${encodeURIComponent(departmentFilter)}`;
+
   return (
     <form onSubmit={submit} className="space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
@@ -153,7 +176,7 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">
-            <Link href={`/print/annual-plan/${year}`}>Official Print</Link>
+            <Link href={`/print/annual-plan/${year}${printDepartmentQuery}`}>Official Print</Link>
           </Button>
           {(canEdit || canEditAnyApproval) && (
             <Button type="submit" disabled={save.isPending}>
@@ -245,9 +268,34 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
       </Card>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
           <CardTitle>Machine Schedule</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search machine or code..."
+                aria-label="Search machine schedule"
+                className="h-9 pl-9"
+              />
+            </div>
+            {departments.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Label htmlFor="annual-department-filter" className="whitespace-nowrap">Department</Label>
+                <select
+                  id="annual-department-filter"
+                  value={departmentFilter}
+                  onChange={(event) => setDepartmentFilter(event.target.value)}
+                  className="flex h-9 min-w-52 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="all">All allowed departments</option>
+                  {departments.map((department) => <option key={department} value={department}>{department}</option>)}
+                </select>
+              </div>
+            )}
             {canEdit && hasUnsavedChanges && <span className="text-sm font-medium text-amber-600">Unsaved changes</span>}
             {canEdit && (
               <Button type="submit" size="sm" disabled={save.isPending || !hasUnsavedChanges}>
@@ -256,7 +304,7 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
               </Button>
             )}
             <Button asChild variant="outline" size="sm">
-              <Link href={`/print/annual-plan/${year}/schedule`}>
+              <Link href={`/print/annual-plan/${year}/schedule${printDepartmentQuery}`}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print Schedule
               </Link>
@@ -267,6 +315,7 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16 text-center">No.</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Machine / Code</TableHead>
                 <TableHead>Frequency</TableHead>
@@ -275,8 +324,9 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
               </TableRow>
             </TableHeader>
             <TableBody>
-              {form.rows.map((row) => (
+              {visibleRows.map((row) => (
                 <TableRow key={row.id}>
+                  <TableCell className="text-center font-medium">{serialByMachineId.get(row.machineId) ?? "—"}</TableCell>
                   <TableCell>{row.department}</TableCell>
                   <TableCell>
                     <div className="font-medium">{row.machineName}</div>
@@ -302,6 +352,7 @@ export default function AnnualPlanPage({ params }: { params: { year: string } })
                   </TableCell>
                 </TableRow>
               ))}
+              {visibleRows.length === 0 && <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No machines match the current search and department filters.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

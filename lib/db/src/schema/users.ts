@@ -4,6 +4,7 @@ import {
   text,
   boolean,
   integer,
+  jsonb,
   timestamp,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -40,6 +41,8 @@ export const usersTable = pgTable("users", {
     .notNull()
     .references(() => rolesTable.id),
   departmentId: integer("department_id").references(() => departmentsTable.id),
+  // null = all departments; [] = no machines; otherwise explicit department IDs.
+  machineDepartmentIds: jsonb("machine_department_ids").$type<number[] | null>(),
   signatureData: text("signature_data"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),

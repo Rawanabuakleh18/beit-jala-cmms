@@ -1,0 +1,15 @@
+{
+  "source": {
+    "id": 107,
+    "machine_number": "PDM-08-082",
+    "machine_name": "Ampoules autoclave"
+  },
+  "target": {
+    "id": 110,
+    "machine_number": "PDM-06-082",
+    "machine_name": "Eye drop autoclave"
+  },
+  "header": [],
+  "points": [],
+  "records": []
+}

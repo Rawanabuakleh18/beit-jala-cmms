@@ -14,8 +14,44 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { requireAnyPermission, requireAuth, requirePermission } from "../lib/auth.js";
+import { machineAccess, restrictedMachineAccess } from "../lib/machine-access.js";
 
 const router = Router();
+
+// Keep the six primary AC units together in the annual and monthly plan
+// tables.  Their shared equipment name otherwise leaves their order dependent
+// on the database's insertion order.
+const annualPlanCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+function primaryAcOrder(machineCode: string | null) {
+  const match = machineCode?.trim().match(/^AC-([1-6])$/i);
+  return match ? Number(match[1]) : null;
+}
+
+function sortAnnualPlanRows<T extends {
+  department: string | null;
+  machineName: string;
+  machineCode: string | null;
+}>(rows: T[]) {
+  return rows.sort((left, right) => {
+    const department = annualPlanCollator.compare(left.department ?? "", right.department ?? "");
+    if (department !== 0) return department;
+
+    const leftAc = primaryAcOrder(left.machineCode);
+    const rightAc = primaryAcOrder(right.machineCode);
+    if (leftAc !== null || rightAc !== null) {
+      if (leftAc === null) return 1;
+      if (rightAc === null) return -1;
+      return leftAc - rightAc;
+    }
+
+    return annualPlanCollator.compare(left.machineName, right.machineName)
+      || annualPlanCollator.compare(left.machineCode ?? "", right.machineCode ?? "");
+  });
+}
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -260,7 +296,7 @@ async function getOrCreateAnnualPlan(year: number) {
 }
 
 async function getAnnualRows(planId: number) {
-  return db
+  const rows = await db
     .select()
     .from(annualPmPlanRowsTable)
     .where(eq(annualPmPlanRowsTable.planId, planId))
@@ -268,6 +304,7 @@ async function getAnnualRows(planId: number) {
       asc(annualPmPlanRowsTable.department),
       asc(annualPmPlanRowsTable.machineName),
     );
+  return sortAnnualPlanRows(rows);
 }
 
 async function getOrCreateMonthlyPlan(year: number, month: number) {
@@ -359,6 +396,50 @@ async function getOrCreateMonthlyPlan(year: number, month: number) {
 
 async function syncMonthlyPlansFromAnnual(year: number) {
   for (let month = 1; month <= 12; month += 1) await getOrCreateMonthlyPlan(year, month);
+}
+
+export async function applyMachineScheduleToPlan(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], machineId: number, year: number) {
+  const [machine] = await tx.select().from(machinesTable).where(eq(machinesTable.id, machineId));
+  if (!machine?.pmStartDate || !machine.pmFrequencyMonths) throw new Error("A start date and frequency are required");
+  const [department] = machine.departmentId ? await tx.select().from(departmentsTable).where(eq(departmentsTable.id, machine.departmentId)) : [];
+  const [existingPlan] = await tx.select().from(annualPmPlansTable).where(eq(annualPmPlansTable.year, year));
+  const plan = existingPlan ?? (await tx.insert(annualPmPlansTable).values({ year }).returning())[0];
+  const [existingRow] = await tx.select().from(annualPmPlanRowsTable).where(and(eq(annualPmPlanRowsTable.planId, plan.id), eq(annualPmPlanRowsTable.machineId, machineId)));
+  const startDate = dateInPlanYear(machine.pmStartDate, year);
+  const months = scheduledMonths(startDate, machine.pmFrequencyMonths, year);
+  const schedule = { startDate, finishDate: startDate, frequencyMonths: machine.pmFrequencyMonths, scheduledMonths: JSON.stringify(months), isOverride: true, updatedAt: new Date() };
+  const row = existingRow
+    ? (await tx.update(annualPmPlanRowsTable).set(schedule).where(eq(annualPmPlanRowsTable.id, existingRow.id)).returning())[0]
+    : (await tx.insert(annualPmPlanRowsTable).values({ ...schedule, planId: plan.id, machineId, machineName: machine.machineName, machineCode: machine.machineNumber, machineLocation: machine.location, department: department?.name }).returning())[0];
+  for (let month = 1; month <= 12; month++) {
+    const [existingMonth] = await tx.select().from(monthlyPmPlansTable).where(and(eq(monthlyPmPlansTable.year, year), eq(monthlyPmPlansTable.month, month)));
+    if (!existingMonth && !months.includes(month)) continue;
+    const monthly = existingMonth ?? (await tx.insert(monthlyPmPlansTable).values({ year, month }).returning())[0];
+    const rows = await tx.select().from(monthlyPmPlanRowsTable).where(eq(monthlyPmPlanRowsTable.planId, monthly.id));
+    const ownRows = rows.filter(r => r.machineId === machineId && r.annualPlanRowId === row.id);
+    if (!months.includes(month)) {
+      for (const current of ownRows) if (!current.actualDate) await tx.delete(monthlyPmPlanRowsTable).where(eq(monthlyPmPlanRowsTable.id, current.id));
+      continue;
+    }
+    const range = monthlyDateRange(year, month);
+    if (!ownRows.length) await tx.insert(monthlyPmPlanRowsTable).values({ planId: monthly.id, annualPlanRowId: row.id, machineId, rowNumber: Math.max(0, ...rows.map(r => r.rowNumber)) + 1, departmentName: department?.name, sectionName: department?.name, machineName: machine.machineName, identificationNumber: machine.machineNumber, plannedDateFrom: range.start, plannedDateTo: range.end });
+    for (const current of ownRows) if (!current.actualDate && !current.plannedDateIsOverride) await tx.update(monthlyPmPlanRowsTable).set({ plannedDateFrom: range.start, plannedDateTo: range.end, updatedAt: new Date() }).where(eq(monthlyPmPlanRowsTable.id, current.id));
+  }
+}
+
+/** Apply a machine schedule to the selected annual plan and every existing
+ * future plan. Historical years before the selected year remain untouched. */
+export async function applyMachineScheduleToPlanAndFollowingYears(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  machineId: number,
+  firstYear: number,
+) {
+  const plans = await tx
+    .select({ year: annualPmPlansTable.year })
+    .from(annualPmPlansTable)
+    .orderBy(asc(annualPmPlansTable.year));
+  const years = new Set([firstYear, ...plans.map((plan) => plan.year).filter((year) => year >= firstYear)]);
+  for (const year of years) await applyMachineScheduleToPlan(tx, machineId, year);
 }
 
 export async function syncAutomaticMaintenancePlans(year = new Date().getFullYear()) {
@@ -468,7 +549,8 @@ router.get(
         return;
       }
       const plan = await getOrCreateAnnualPlan(year);
-      res.json(formatAnnual(plan, await getAnnualRows(plan.id)));
+      const rows = sortAnnualPlanRows(await db.select().from(annualPmPlanRowsTable).where(and(eq(annualPmPlanRowsTable.planId, plan.id), machineAccess(annualPmPlanRowsTable.machineId))).orderBy(asc(annualPmPlanRowsTable.department), asc(annualPmPlanRowsTable.machineName)));
+      res.json(formatAnnual(plan, rows));
     } catch (err) {
       next(err);
     }
@@ -514,6 +596,7 @@ router.put(
       } as const;
       const approvalUpdates: Record<string, string | null | Date> = { updatedAt: new Date() };
       for (const [signatureField, planFields] of Object.entries(approvalFieldMap)) {
+        if (restrictedMachineAccess()) continue;
         if (!isAdmin && !allowedApprovalFields.has(signatureField)) continue;
         for (const planField of planFields) {
           approvalUpdates[planField] = (body[planField] as string | undefined) ?? null;
@@ -568,7 +651,8 @@ router.put(
       }
 
       await syncMonthlyPlansFromAnnual(year);
-      res.json(formatAnnual(updated!, await getAnnualRows(plan.id)));
+      const visibleRows = sortAnnualPlanRows(await db.select().from(annualPmPlanRowsTable).where(and(eq(annualPmPlanRowsTable.planId, plan.id), machineAccess(annualPmPlanRowsTable.machineId))).orderBy(asc(annualPmPlanRowsTable.department), asc(annualPmPlanRowsTable.machineName)));
+      res.json(formatAnnual(updated!, visibleRows));
     } catch (err) {
       next(err);
     }
@@ -605,7 +689,7 @@ router.get(
         })
         .from(machinesTable)
         .leftJoin(departmentsTable, eq(machinesTable.departmentId, departmentsTable.id))
-        .where(isNull(machinesTable.deletedAt))
+        .where(and(machineAccess(), isNull(machinesTable.deletedAt)))
         .orderBy(asc(machinesTable.machineName));
       res.json(machines.filter((machine) => !existingIds.has(machine.id)));
     } catch (err) {
@@ -768,7 +852,7 @@ router.get(
       const rows = await db
         .select()
         .from(monthlyPmPlanRowsTable)
-        .where(eq(monthlyPmPlanRowsTable.planId, plan.id))
+        .where(and(eq(monthlyPmPlanRowsTable.planId, plan.id), machineAccess(monthlyPmPlanRowsTable.machineId)))
         .orderBy(asc(monthlyPmPlanRowsTable.rowNumber));
       res.json(formatMonthly(plan, rows));
     } catch (err) {
@@ -801,7 +885,7 @@ router.put(
         }>;
       };
       let updatedPlan = plan;
-      if (canEditHeader) {
+      if (canEditHeader && !restrictedMachineAccess()) {
         const [updated] = await db
         .update(monthlyPmPlansTable)
         .set({
@@ -875,7 +959,7 @@ router.put(
       const rows = await db
         .select()
         .from(monthlyPmPlanRowsTable)
-        .where(eq(monthlyPmPlanRowsTable.planId, plan.id))
+        .where(and(eq(monthlyPmPlanRowsTable.planId, plan.id), machineAccess(monthlyPmPlanRowsTable.machineId)))
         .orderBy(asc(monthlyPmPlanRowsTable.rowNumber));
       res.json(formatMonthly(updatedPlan, rows));
     } catch (err) {
